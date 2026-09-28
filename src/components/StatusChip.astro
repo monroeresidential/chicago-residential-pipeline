@@ -1,0 +1,12 @@
+---
+import { STATUS_COLORS, STATUS_LABELS, type Status } from "../lib/schema";
+
+interface Props {
+  status: Status;
+  reported?: boolean;
+}
+const { status, reported = false } = Astro.props;
+---
+<span class:list={["chip", { "chip--hollow": reported }]} style={`--chip-color: ${STATUS_COLORS[status]}`}>
+  {STATUS_LABELS[status]}{reported && " · Reported"}
+</span>

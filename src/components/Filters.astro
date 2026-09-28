@@ -1,0 +1,42 @@
+---
+import { PROGRAM_LABELS, PROGRAMS, STATUS_COLORS, STATUS_LABELS, STATUSES, type Status } from "../lib/schema";
+
+interface Props {
+  counts: Record<Status, number>;
+}
+const { counts } = Astro.props;
+---
+<form class="filters" id="filters">
+  <fieldset>
+    <legend>Status</legend>
+    {STATUSES.map((s) => (
+      <label class="filter-option">
+        <input type="checkbox" name="status" value={s} checked />
+        <span class="swatch" style={`--swatch: ${STATUS_COLORS[s]}`} aria-hidden="true"></span>
+        <span class="filter-label">{STATUS_LABELS[s]}</span>
+        <span class="filter-count">{counts[s]}</span>
+      </label>
+    ))}
+  </fieldset>
+  <fieldset>
+    <legend>Program</legend>
+    {PROGRAMS.map((p) => (
+      <label class="filter-option">
+        <input type="checkbox" name="program" value={p} checked />
+        <span class="filter-label">{PROGRAM_LABELS[p]}</span>
+      </label>
+    ))}
+  </fieldset>
+  <label class="sort">
+    Sort by
+    <select id="sort" name="sort">
+      <option value="units">Units</option>
+      <option value="tpc">Project cost</option>
+      <option value="status">Status</option>
+    </select>
+  </label>
+</form>
+<p class="legend-note">
+  <span class="swatch swatch--hollow" aria-hidden="true"></span> Reported, not on DPD map
+  <span class="swatch swatch--monroe" aria-hidden="true"></span> Monroe project
+</p>

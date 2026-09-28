@@ -1,0 +1,29 @@
+---
+import StatusChip from "./StatusChip.astro";
+import { displayName, formatMoney, formatUnits } from "../lib/format";
+import type { Project } from "../lib/schema";
+
+interface Props {
+  projects: Project[];
+}
+const { projects } = Astro.props;
+---
+<ol class="project-list" id="project-list">
+  {projects.map((p) => (
+    <li data-id={p.id}>
+      <a class="project-row" href={`/projects/${p.id}`} data-id={p.id}>
+        <span class="row-name">
+          {displayName(p)}
+          {p.flag && <span class="row-flag" role="img" aria-label={`Warning: ${p.flag}`}> ⚠</span>}
+        </span>
+        {p.name && <span class="row-address">{p.address}</span>}
+        <span class="row-meta">
+          <StatusChip status={p.status} reported={p.confidence === "reported"} />
+          <span>{formatUnits(p.units)} units · {formatMoney(p.tpc_musd)}</span>
+        </span>
+        {p.monroe_url && <span class="row-monroe">Monroe project</span>}
+      </a>
+    </li>
+  ))}
+</ol>
+<p id="empty-state" class="empty-state" hidden>No projects match these filters.</p>

@@ -1,0 +1,14 @@
+---
+import { formatMoney, formatUnits } from "../lib/format";
+import type { Totals } from "../lib/stats";
+
+interface Props {
+  totals: Totals;
+}
+const { totals } = Astro.props;
+---
+<dl class="stats" aria-live="polite">
+  <div><dt>Projects</dt><dd data-stat="count">{totals.count}</dd></div>
+  <div><dt>Units</dt><dd data-stat="units">{formatUnits(totals.units)}</dd></div>
+  <div><dt>Cost</dt><dd data-stat="tpc">{formatMoney(totals.tpcMusd)}</dd></div>
+</dl>
