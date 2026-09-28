@@ -14,3 +14,5 @@ inbox/*
 !inbox/README.md
 # Local-only source material (public repo): raw research CSV, DPD map image, PDFs
 data/raw/
+# Local-only deal data from confidential materials (public repo) — never commit
+private/

@@ -15,7 +15,7 @@ pnpm data:check     # validate data/projects.csv and print totals
 
 ## Updating project data
 
-New project PDFs go in `inbox/` (git-ignored, stays local; see `inbox/README.md`).
+New project PDFs go in `inbox/`; extracted deal data, assumptions and rent comps live in `private/`. Both are git-ignored and stay local (see `inbox/README.md`); a test fails if anything under them is ever tracked.
 
 1. Edit `data/projects.csv` (one row per project; see column rules below).
 2. Update `DATA_AS_OF` in `src/lib/data-meta.ts`.

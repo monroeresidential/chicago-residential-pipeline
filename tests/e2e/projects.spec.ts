@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 import type { ProjectCollection } from "../../src/lib/schema";
 
-test("GeoJSON endpoint lists all 28 projects as points", async ({ request }) => {
+test("GeoJSON endpoint lists all 29 projects as points", async ({ request }) => {
   const res = await request.get("/data/projects.geojson");
   expect(res.ok()).toBe(true);
   const fc = (await res.json()) as ProjectCollection;
   expect(fc.type).toBe("FeatureCollection");
-  expect(fc.features).toHaveLength(28);
+  expect(fc.features).toHaveLength(29);
   expect(fc.features[0]!.geometry.type).toBe("Point");
 });
 

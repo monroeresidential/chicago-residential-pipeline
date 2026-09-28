@@ -5,12 +5,12 @@ import { countByStatus, totals } from "../../src/lib/stats";
 describe("data/projects.csv", () => {
   const projects = loadProjects();
 
-  it("has all 28 projects and valid rows", () => {
-    expect(projects).toHaveLength(28);
+  it("has all 29 projects and valid rows", () => {
+    expect(projects).toHaveLength(29);
   });
 
   it("matches the expected totals", () => {
-    expect(totals(projects)).toEqual({ count: 28, units: 4269, tpcMusd: 1839.8 });
+    expect(totals(projects)).toEqual({ count: 29, units: 4321, tpcMusd: 1839.8 });
     const dpd = projects.filter((p) => p.confidence === "dpd");
     expect(totals(dpd)).toEqual({ count: 25, units: 3935, tpcMusd: 1799.8 });
   });
@@ -22,7 +22,7 @@ describe("data/projects.csv", () => {
 
   it("matches the agreed stage assignment", () => {
     expect(countByStatus(projects)).toEqual({
-      completed: 2, under_construction: 7, permitted: 5, approved: 9, planning: 5,
+      completed: 2, under_construction: 7, permitted: 5, approved: 9, planning: 6,
     });
   });
 
@@ -46,5 +46,13 @@ describe("620 N LaSalle", () => {
     expect(p).toMatchObject({ units: 90, status: "planning", confidence: "reported", program: "private" });
     expect(p.developer).toBe("Monroe Residential Partners");
     expect(p.monroe_url).not.toBeNull();
+  });
+});
+
+describe("215 W Ohio", () => {
+  it("shows only public facts: 52 units, Base 3, planning, no cost", () => {
+    const p = loadProjects().find((x) => x.id === "215-w-ohio")!;
+    expect(p).toMatchObject({ name: "Bold Gallery Lofts", developer: "Base 3 Development", units: 52, status: "planning", confidence: "reported", tpc_musd: null, monroe_url: null });
+    expect(p.sources).toEqual(["https://base3co.com/portfolio/215-w-ohio/"]);
   });
 });
