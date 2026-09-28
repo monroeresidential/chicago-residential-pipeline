@@ -1,6 +1,6 @@
 import type { APIRoute, GetStaticPaths } from "astro";
 import { loadProjects } from "../../lib/load-projects";
-import { projectOgContent, renderOgPng, siteOgContent, type OgContent } from "../../lib/og";
+import { projectOgContent, renderOgImage, siteOgContent, type OgContent } from "../../lib/og";
 
 export const getStaticPaths = (() => {
   const projects = loadProjects();
@@ -11,6 +11,6 @@ export const getStaticPaths = (() => {
 }) satisfies GetStaticPaths;
 
 export const GET: APIRoute = async ({ props }) =>
-  new Response(await renderOgPng((props as { content: OgContent }).content), {
-    headers: { "Content-Type": "image/png" },
+  new Response(await renderOgImage((props as { content: OgContent }).content), {
+    headers: { "Content-Type": "image/jpeg" },
   });

@@ -29,7 +29,7 @@ const jsonLd = {
   distribution: [{ "@type": "DataDownload", encodingFormat: "application/geo+json", contentUrl: new URL("/data/projects.geojson", Astro.site).href }],
 };
 ---
-<Base title="Chicago Residential Pipeline | Downtown Office-to-Residential Conversions Map" description={description} jsonLd={jsonLd} fullscreen>
+<Base title="Chicago Residential Pipeline | Office Conversions Map" description={description} jsonLd={jsonLd} fullscreen>
   <div class="app-shell">
     <aside id="sidebar" class="sidebar" data-state="collapsed" aria-label="Projects">
       <button type="button" class="sheet-handle" aria-expanded="false" aria-controls="sidebar-body">

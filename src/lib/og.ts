@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import satori, { type SatoriOptions } from "satori";
+import sharp from "sharp";
 import { displayName, formatMoney, formatUnits } from "./format";
 import { STATUS_LABELS, type Project } from "./schema";
 import { totals } from "./stats";
@@ -65,7 +66,8 @@ function photoLayers(background: string): OgNode[] {
   ];
 }
 
-export async function renderOgPng({ eyebrow, title, subtitle, background, caption }: OgContent): Promise<ArrayBuffer> {
+/** 1200×630 JPEG (photo backgrounds make PNGs ~1 MB; WhatsApp needs < 500 KB). */
+export async function renderOgImage({ eyebrow, title, subtitle, background, caption }: OgContent): Promise<ArrayBuffer> {
   const content = div(
     { position: "relative", width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "72px 80px" },
     [
@@ -87,5 +89,6 @@ export async function renderOgPng({ eyebrow, title, subtitle, background, captio
   );
   const svg = await satori(tree as unknown as Parameters<typeof satori>[0], { width: 1200, height: 630, fonts: loadFonts() });
   const png = new Resvg(svg).render().asPng();
-  return png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength) as ArrayBuffer;
+  const jpeg = await sharp(png).jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+  return jpeg.buffer.slice(jpeg.byteOffset, jpeg.byteOffset + jpeg.byteLength) as ArrayBuffer;
 }

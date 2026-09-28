@@ -29,7 +29,7 @@ On this machine, TLS goes through Cloudflare Gateway: Node/pnpm network calls ne
 - `src/pages/index.astro` renders the sidebar server-side and **embeds** the GeoJSON FeatureCollection in `<script type="application/json" id="projects-data">`; the client map reads it (no second request).
 - `src/pages/projects/[id].astro` — one static page per project (JSON-LD, mini-map).
 - `src/pages/data/projects.geojson.ts` — same FeatureCollection as a static file; it is the contract a future Postgres-backed `/api/projects` must keep.
-- `src/pages/og/[id].png.ts` — satori + resvg share images (`src/lib/og.ts`); `site.png` is the home image over `src/assets/og/birken-lofts.jpg`.
+- `src/pages/og/[id].jpg.ts` — satori → resvg → sharp JPEG share images (`src/lib/og.ts`, kept < 500 KB for WhatsApp); `site.jpg` is the home image over `src/assets/og/birken-lofts.jpg`. Raster favicons/app icons come from `scripts/generate-icons.ts` (rerun if `public/favicon.svg` changes).
 
 Enums (status order, labels, colors; programs) live in `schema.ts` and drive CSS swatches, filters, markers and sorting. `DATA_AS_OF` in `src/lib/data-meta.ts` is a single constant copied into every feature.
 

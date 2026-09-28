@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectOgContent, renderOgPng, siteOgContent } from "../../src/lib/og";
+import { projectOgContent, renderOgImage, siteOgContent } from "../../src/lib/og";
 import { makeProject } from "./fixtures";
 
 describe("OG content", () => {
@@ -25,16 +25,18 @@ describe("OG content", () => {
   });
 });
 
-describe("renderOgPng", () => {
-  it("renders a PNG with a photo background", async () => {
-    const c = siteOgContent([makeProject()]);
-    const png = new Uint8Array(await renderOgPng(c));
-    expect([...png.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
-    expect(png.byteLength).toBeGreaterThan(100_000); // a photo, not a flat navy card
+describe("renderOgImage", () => {
+  const JPEG = [0xff, 0xd8, 0xff];
+
+  it("renders the photo-backed site image as a JPEG under WhatsApp's 500 KB limit", async () => {
+    const img = new Uint8Array(await renderOgImage(siteOgContent([makeProject()])));
+    expect([...img.slice(0, 3)]).toEqual(JPEG);
+    expect(img.byteLength).toBeGreaterThan(50_000); // a photo, not a flat card
+    expect(img.byteLength).toBeLessThan(500_000);
   }, 20_000);
 
-  it("renders a PNG", async () => {
-    const png = new Uint8Array(await renderOgPng({ eyebrow: "Chicago Residential Pipeline", title: "Test & <Title>", subtitle: "1 unit" }));
-    expect([...png.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  it("renders a text-only project image as a JPEG", async () => {
+    const img = new Uint8Array(await renderOgImage({ eyebrow: "Chicago Residential Pipeline", title: "Test & <Title>", subtitle: "1 unit" }));
+    expect([...img.slice(0, 3)]).toEqual(JPEG);
   }, 20_000);
 });

@@ -17,7 +17,7 @@ interface Props {
   jsonLd?: Record<string, unknown>;
   fullscreen?: boolean;
 }
-const { title, description, ogImage = "/og/site.png", jsonLd, fullscreen = false } = Astro.props;
+const { title, description, ogImage = "/og/site.jpg", jsonLd, fullscreen = false } = Astro.props;
 // With build.format "file", strip any .html / trailing /index so canonical URLs match the links we publish.
 const canonicalPath = Astro.url.pathname.replace(/\.html$/, "").replace(/\/index$/, "/");
 const canonical = new URL(canonicalPath, Astro.site).href;
@@ -35,15 +35,21 @@ const jsonLdText = jsonLd ? JSON.stringify(jsonLd).replace(/</g, "\\u003c") : nu
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <meta name="theme-color" content="#00051B" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <link rel="preload" as="font" type="font/woff2" href={interUrl} crossorigin />
     <link rel="preload" as="font" type="font/woff2" href={newsreaderUrl} crossorigin />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="Chicago Residential Pipeline by Monroe Residential Partners" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogUrl} />
+    <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content={title} />
