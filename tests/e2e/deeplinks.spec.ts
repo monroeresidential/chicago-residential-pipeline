@@ -9,7 +9,7 @@ test("restores filters and selection from the URL", async ({ page }) => {
 
 test("ignores malformed parameters", async ({ page }) => {
   await page.goto("/?status=bogus&program=x&project=deleted-id");
-  await expect(page.locator(".marker:not([hidden])")).toHaveCount(27);
+  await expect(page.locator(".marker:not([hidden])")).toHaveCount(28);
   await expect(page.locator(".maplibregl-popup")).toHaveCount(0);
   await expect(page).toHaveURL(/localhost:4321\/$/);
 });

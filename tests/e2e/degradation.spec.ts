@@ -4,7 +4,7 @@ test("when tiles fail, markers still render and a notice appears", async ({ page
   await page.route("**/*.pmtiles", (route) => route.abort());
   await page.goto("/");
   await expect(page.locator("#map-notice")).toBeVisible();
-  await expect(page.locator(".marker:not([hidden])")).toHaveCount(27);
+  await expect(page.locator(".marker:not([hidden])")).toHaveCount(28);
 });
 
 test("without WebGL the list still filters and links to project pages", async ({ page }) => {
@@ -17,9 +17,9 @@ test("without WebGL the list still filters and links to project pages", async ({
   });
   await page.goto("/");
   await expect(page.locator("#map-fallback")).toBeVisible();
-  await expect(page.locator("#project-list li:not([hidden])")).toHaveCount(27);
+  await expect(page.locator("#project-list li:not([hidden])")).toHaveCount(28);
   await page.locator("#filters").getByLabel("Completed").uncheck();
-  await expect(page.locator('.stats [data-stat="count"]')).toHaveText("25");
+  await expect(page.locator('.stats [data-stat="count"]')).toHaveText("26");
   await page.locator('a.project-row[data-id="111-w-monroe"]').click();
   await expect(page).toHaveURL(/\/projects\/111-w-monroe$/);
 });
@@ -30,7 +30,7 @@ test("the MapLibre web worker loads in the production build", async ({ page }) =
   page.on("pageerror", (err) => { if (/worker/i.test(err.message)) errors.push(err.message); });
   await page.route("**/*.pmtiles", (route) => route.abort());
   await page.goto("/");
-  await expect(page.locator(".marker:not([hidden])")).toHaveCount(27);
+  await expect(page.locator(".marker:not([hidden])")).toHaveCount(28);
   await page.waitForTimeout(1500);
   expect(errors).toEqual([]);
 });
@@ -38,7 +38,7 @@ test("the MapLibre web worker loads in the production build", async ({ page }) =
 test("the map does not depend on fetching project data (it is embedded in the page)", async ({ page }) => {
   await page.route("**/data/projects.geojson", (route) => route.abort());
   await page.goto("/");
-  await expect(page.locator(".marker:not([hidden])")).toHaveCount(27);
+  await expect(page.locator(".marker:not([hidden])")).toHaveCount(28);
   await page.locator("#filters").getByLabel("Completed").uncheck();
   await expect(page.locator('#project-list li[data-id="79-w-monroe"]')).toBeHidden();
 });

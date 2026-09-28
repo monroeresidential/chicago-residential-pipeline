@@ -11,7 +11,7 @@ for (const path of ["/og/site.png", "/og/111-w-monroe.png", "/og/118-s-clinton.p
 test("home page has share tags and a description", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", "https://pipeline.monroeresidential.com/og/site.png");
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /27 office-to-residential conversions/);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /28 office-to-residential conversions/);
 });
 
 test("sitemap lists project pages and robots.txt points to it", async ({ request }) => {

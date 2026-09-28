@@ -4,7 +4,7 @@ test("sidebar is a bottom sheet that expands on tap and collapses on selection",
   await page.goto("/");
   const sidebar = page.locator("#sidebar");
   await expect(sidebar).toHaveAttribute("data-state", "collapsed");
-  await expect(page.locator(".sheet-handle")).toContainText("27 projects");
+  await expect(page.locator(".sheet-handle")).toContainText("28 projects");
   await expect(page.locator("#project-list")).toBeHidden();
 
   await page.locator(".sheet-handle").click();
