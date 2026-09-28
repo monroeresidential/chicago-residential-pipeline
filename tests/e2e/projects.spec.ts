@@ -16,7 +16,7 @@ test("every project page renders with its own title and share tags", async ({ pa
     const res = await page.goto(`/projects/${f.id}`);
     expect(res?.status(), f.id).toBe(200);
     await expect(page.locator("h1")).toHaveText(f.properties.name ?? f.properties.address);
-    await expect(page).toHaveTitle(/ · Chicago Pipeline$/);
+    await expect(page).toHaveTitle(/ · Chicago Residential Pipeline$/);
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
       "content", `https://pipeline.monroeresidential.com/og/${f.id}.png`,
     );

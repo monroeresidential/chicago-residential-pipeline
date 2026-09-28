@@ -8,10 +8,22 @@ for (const path of ["/og/site.png", "/og/111-w-monroe.png", "/og/118-s-clinton.p
   });
 }
 
-test("home page has share tags and a description", async ({ page }) => {
+test("home page is branded and search-friendly", async ({ page }) => {
   await page.goto("/");
+  await expect(page).toHaveTitle(/^Chicago Residential Pipeline \| /);
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", "https://pipeline.monroeresidential.com/og/site.png");
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /28 office-to-residential conversions/);
+  await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute("content", /Chicago Residential Pipeline/);
+  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Chicago Residential Pipeline by Monroe Residential Partners");
+  const description = await page.locator('meta[name="description"]').getAttribute("content");
+  expect(description).toMatch(/28 downtown Chicago office-to-residential conversions/);
+  expect(description!.length).toBeLessThanOrEqual(160);
+  const jsonLd = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!);
+  expect(jsonLd["@type"]).toBe("Dataset");
+});
+
+test("project pages carry the site name in their titles", async ({ page }) => {
+  await page.goto("/projects/401-w-ontario");
+  await expect(page).toHaveTitle("Birken Lofts · Chicago Residential Pipeline");
 });
 
 test("sitemap lists project pages and robots.txt points to it", async ({ request }) => {

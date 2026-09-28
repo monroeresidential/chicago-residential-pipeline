@@ -16,9 +16,20 @@ const projects = loadProjects();
 const t = totals(projects);
 // Embedded so the map never waits on (or fails on) a second request. Same shape as /data/projects.geojson.
 const projectsJson = JSON.stringify(toFeatureCollection(projects, DATA_AS_OF)).replace(/</g, "\\u003c");
-const description = `${t.count} office-to-residential conversions in downtown Chicago: ${formatUnits(t.units)} units and ${formatMoney(t.tpcMusd)} in project costs, mapped by status.`;
+const description = `Map of ${t.count} downtown Chicago office-to-residential conversions: ${formatUnits(t.units)} units, ${formatMoney(t.tpcMusd)}, tracked from planning to completion. By Monroe Residential.`;
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  name: "Chicago Residential Pipeline: downtown office-to-residential conversions",
+  description,
+  url: Astro.site!.href,
+  dateModified: DATA_AS_OF,
+  spatialCoverage: { "@type": "Place", name: "Downtown Chicago, IL" },
+  creator: { "@type": "Organization", name: "Monroe Residential Partners", url: "https://monroeresidential.com" },
+  distribution: [{ "@type": "DataDownload", encodingFormat: "application/geo+json", contentUrl: new URL("/data/projects.geojson", Astro.site).href }],
+};
 ---
-<Base title="Chicago Pipeline · Downtown Office-to-Residential Conversions" description={description} fullscreen>
+<Base title="Chicago Residential Pipeline | Downtown Office-to-Residential Conversions Map" description={description} jsonLd={jsonLd} fullscreen>
   <div class="app-shell">
     <aside id="sidebar" class="sidebar" data-state="collapsed" aria-label="Projects">
       <button type="button" class="sheet-handle" aria-expanded="false" aria-controls="sidebar-body">
