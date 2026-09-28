@@ -38,3 +38,12 @@ BUILD=$(curl -s https://build-metadata.protomaps.dev/builds.json | python3 -c 'i
 tiles/bin/pmtiles extract "https://build.protomaps.com/$BUILD" tiles/chicago.pmtiles --bbox=-87.78,41.80,-87.56,41.97 --maxzoom=15
 pnpm exec wrangler r2 object put chicago-pipeline-tiles/chicago.pmtiles --file tiles/chicago.pmtiles --remote --content-type application/octet-stream
 ```
+
+## Deploy
+
+Pushes to `main` deploy automatically (Cloudflare Workers Builds). Manual deploy:
+
+```bash
+pnpm exec wrangler login   # once
+pnpm run deploy
+```
