@@ -14,3 +14,44 @@ test("CSV and JSON downloads contain every project", async ({ request }) => {
   expect(body.projects).toHaveLength(geo.features.length);
   expect(body.as_of).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 });
+
+test("llms.txt lists every project and every link resolves", async ({ request }) => {
+  const res = await request.get("/llms.txt");
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-type"]).toContain("text/plain");
+  const txt = await res.text();
+  const geo = await (await request.get("/data/projects.geojson")).json();
+  const projectLines = txt.split("\n").filter((l) => l.startsWith("- [") && l.includes("/projects/"));
+  expect(projectLines).toHaveLength(geo.features.length);
+  const links = [...txt.matchAll(/\]\((https:\/\/pipeline\.monroeresidential\.com[^)]*)\)/g)].map((m) => m[1]!);
+  expect(links.length).toBeGreaterThan(geo.features.length);
+  for (const link of links) {
+    const path = new URL(link).pathname;
+    expect((await request.get(path)).status(), path).toBe(200);
+  }
+});
+
+test("llms-full.txt and about.md are served as text", async ({ request }) => {
+  const full = await request.get("/llms-full.txt");
+  expect(full.status()).toBe(200);
+  expect(await full.text()).not.toMatch(/\bnull\b|undefined/);
+  const about = await request.get("/about.md");
+  expect(about.status()).toBe(200);
+  expect(await about.text()).toContain("# How we track the pipeline");
+});
+
+test("each project's Markdown matches its HTML page", async ({ page, request }) => {
+  const geo = await (await request.get("/data/projects.geojson")).json();
+  for (const f of geo.features) {
+    const md = await request.get(`/projects/${f.id}.md`);
+    expect(md.status(), f.id).toBe(200);
+    expect(md.headers()["content-type"]).toMatch(/text\/(markdown|plain)/);
+    const text = await md.text();
+    await page.goto(`/projects/${f.id}`);
+    const h1 = (await page.locator("h1").textContent())!.trim();
+    expect(text.split("\n")[0]).toBe(`# ${h1.replace(/([\\`*_[\]|<>])/g, "\\$1")}`);
+    const unitsHtml = (await page.locator(".facts div", { has: page.locator("dt", { hasText: /^Units$/ }) }).locator("dd").textContent())!.trim();
+    expect(text).toContain(`- Units: ${unitsHtml}`);
+    expect(text).not.toMatch(/\bnull\b|undefined/);
+  }
+});
