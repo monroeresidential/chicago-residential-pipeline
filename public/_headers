@@ -1,0 +1,16 @@
+# Cloudflare Workers static assets: add charset=utf-8 to generated text files
+# (the extension-based default has no charset, so "—" and "⚠" garble for Latin-1 readers).
+/llms.txt
+  Content-Type: text/plain; charset=utf-8
+
+/llms-full.txt
+  Content-Type: text/plain; charset=utf-8
+
+/about.md
+  Content-Type: text/markdown; charset=utf-8
+
+/projects/*.md
+  Content-Type: text/markdown; charset=utf-8
+
+/data/projects.csv
+  Content-Type: text/csv; charset=utf-8

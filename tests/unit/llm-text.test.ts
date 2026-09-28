@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { llmsFullTxt, llmsTxt, mdEscape, projectLine, projectMarkdown, aboutMarkdown } from "../../src/lib/llm-text";
+import { llmsFullTxt, llmsTxt, mdEscape, projectLine, projectMarkdown, aboutMarkdown, suggestSection } from "../../src/lib/llm-text";
 import { loadProjects } from "../../src/lib/load-projects";
 import { makeProject } from "./fixtures";
 
@@ -90,5 +90,27 @@ describe("aboutMarkdown", () => {
     expect(md).toContain("# How we track the pipeline");
     expect(md).toContain("developer");
     expect(md).toContain(FORM);
+  });
+});
+
+describe("agent instructions (final review fixes)", () => {
+  const section = suggestSection(FORM, SITE);
+
+  it("points to the real form URL and gives a curl example", () => {
+    expect(section).toContain("https://pipeline.monroeresidential.com/about#suggest");
+    expect(section).not.toContain("bottom of the About page");
+    expect(section).toContain(`curl -X POST ${FORM}`);
+    expect(section).toContain("-H 'Accept: application/json' -H 'Content-Type: application/json'");
+  });
+
+  it("explains what a project id is, and every project lists its id", () => {
+    expect(section).toContain("the slug in the project's URL, e.g. 111-w-monroe");
+    expect(projectMarkdown(makeProject(), "2026-09-28", SITE)).toContain("- ID: 111-w-monroe");
+  });
+
+  it("llms.txt explains what each status means", () => {
+    const txt = llmsTxt(projects, "2026-09-28", SITE, FORM);
+    expect(txt).toContain("permitted (renovation permit issued; construction not yet confirmed underway)");
+    expect(txt).toContain("planning (acquired or proposed; entitlements or financing not yet in place)");
   });
 });

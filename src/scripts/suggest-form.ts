@@ -10,7 +10,6 @@ export function bindSuggestForm(): void {
   if (preselect && [...select.options].some((o) => o.value === preselect)) select.value = preselect;
 
   const show = (message: string, state: "pending" | "success" | "error") => {
-    status.hidden = false;
     status.textContent = message;
     status.dataset.state = state;
   };

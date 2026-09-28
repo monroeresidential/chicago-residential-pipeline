@@ -64,3 +64,20 @@ test("footer, map sidebar and project pages link to the form", async ({ page }) 
   await page.goto("/");
   await expect(page.locator("#sidebar").getByRole("link", { name: "Suggest a correction" })).toHaveAttribute("href", "/about#suggest");
 });
+
+test("the status message is a live region that exists before submitting (so screen readers announce it)", async ({ page }) => {
+  await page.goto("/about#suggest");
+  const status = page.locator("#suggest-form .form-status");
+  await expect(status).toHaveAttribute("role", "status");
+  await expect(status).not.toHaveAttribute("hidden", /.*/);
+  await expect(status).toHaveText("");
+});
+
+test("a network failure shows the error and keeps the input", async ({ page }) => {
+  await page.route("https://formspree.io/f/maenaqbd", (route) => route.abort());
+  await page.goto("/about#suggest");
+  const form = await fill(page);
+  await form.getByRole("button", { name: "Send suggestion" }).click();
+  await expect(form.locator(".form-status")).toHaveText(/didn.t send/);
+  await expect(form.getByLabel("Message")).toHaveValue(/Permit issued/);
+});

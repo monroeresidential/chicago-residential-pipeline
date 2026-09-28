@@ -26,7 +26,7 @@ const options = [...Astro.props.projects].sort((a, b) => displayName(a).localeCo
   </div>
   <label><span>Message <span class="req" aria-hidden="true">*</span></span><textarea name="message" rows="6" required placeholder="What should change, and a source (link) if you have one."></textarea></label>
   <button type="submit" class="button">Send suggestion</button>
-  <p class="form-status" role="status" aria-live="polite" hidden></p>
+  <p class="form-status" role="status" aria-live="polite"></p>
 </form>
 
 <script>

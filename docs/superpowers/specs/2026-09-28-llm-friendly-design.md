@@ -143,5 +143,7 @@ Content-Type: application/json
 
 ## 7. Needed from Monroe
 
-- Create the Formspree form, allow `pipeline.monroeresidential.com`, turn email notifications
-  on/off as preferred, and provide the endpoint URL.
+- Create the Formspree form (done: `https://formspree.io/f/maenaqbd`), turn email notifications
+  on/off as preferred. **Leave "Restrict to domain" off** for this form: it filters on the `Referer`
+  header, which agent POSTs (and some privacy browsers) do not send, so restricted submissions
+  silently go to Formspree's spam folder.
