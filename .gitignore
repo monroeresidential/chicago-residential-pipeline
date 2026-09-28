@@ -12,3 +12,5 @@ playwright-report/
 # Local-only project PDFs (public repo) — only the README is tracked
 inbox/*
 !inbox/README.md
+# Local-only source material (public repo): raw research CSV, DPD map image, PDFs
+data/raw/

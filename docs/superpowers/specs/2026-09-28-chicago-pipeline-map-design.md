@@ -103,7 +103,7 @@ contrast against the basemap (finalized during implementation).
 ### 4.1 Source of truth
 
 `data/projects.csv` — cleaned, hand-editable. Derived from the original
-`chicago_conversions_2026.csv` (kept in `data/raw/` with the DPD map image).
+`chicago_conversions_2026.csv` (kept locally in git-ignored `data/raw/` with the DPD map image; not published).
 `scripts/build-data.ts` converts it to `public/data/projects.geojson` before
 every build. Pages and map both consume the GeoJSON.
 
