@@ -1,6 +1,44 @@
 ---
+import Filters from "../components/Filters.astro";
+import MapView from "../components/MapView.astro";
+import ProjectList from "../components/ProjectList.astro";
+import StatTiles from "../components/StatTiles.astro";
 import Base from "../layouts/Base.astro";
+import { DATA_AS_OF } from "../lib/data-meta";
+import { sortProjects } from "../lib/filters";
+import { formatDate, formatMoney, formatUnits } from "../lib/format";
+import { loadProjects } from "../lib/load-projects";
+import { countByStatus, totals } from "../lib/stats";
+import "../styles/map.css";
+
+const projects = loadProjects();
+const t = totals(projects);
+const description = `${t.count} office-to-residential conversions in downtown Chicago: ${formatUnits(t.units)} units and ${formatMoney(t.tpcMusd)} in project costs, mapped by status.`;
 ---
-<Base title="Chicago Pipeline" description="Downtown Chicago office-to-residential conversions.">
-  <section class="container page-section"><h1>Chicago Pipeline</h1></section>
+<Base title="Chicago Pipeline · Downtown Office-to-Residential Conversions" description={description} fullscreen>
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar" data-state="collapsed" aria-label="Projects">
+      <button type="button" class="sheet-handle" aria-expanded="false" aria-controls="sidebar-body">
+        <span class="sheet-grip" aria-hidden="true"></span>
+        <span><span data-stat="count">{t.count}</span> projects · <span data-stat="units">{formatUnits(t.units)}</span> units</span>
+      </button>
+      <div class="sidebar-body" id="sidebar-body">
+        <p class="eyebrow">Downtown Chicago</p>
+        <h1 class="sidebar-title">Office-to-Residential Conversions</h1>
+        <StatTiles totals={t} />
+        <Filters counts={countByStatus(projects)} />
+        <ProjectList projects={sortProjects(projects, "units")} />
+        <div class="sidebar-cta">
+          <p><strong>Have a project in mind?</strong>We live to talk about the next great project.</p>
+          <a class="button" href="tel:+13122964855">(312) 296-4855</a>
+        </div>
+        <p class="as-of">Data as of {formatDate(DATA_AS_OF)} · <a href="/about">Sources &amp; methodology</a></p>
+      </div>
+    </aside>
+    <MapView />
+  </div>
+  <script>
+    import { startMapApp } from "../scripts/map-app";
+    startMapApp();
+  </script>
 </Base>

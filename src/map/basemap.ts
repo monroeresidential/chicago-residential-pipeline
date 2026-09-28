@@ -1,6 +1,9 @@
 import * as maplibregl from "maplibre-gl";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { Protocol } from "pmtiles";
+// MapLibre 6 locates its worker with a runtime-built URL that bundlers cannot follow,
+// so bundle the worker explicitly and hand MapLibre its URL.
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { buildStyle, DEFAULT_ASSETS_PATH, DEFAULT_PMTILES_URL } from "./style";
 
 export const CHICAGO_CENTER: [number, number] = [-87.6298, 41.8847];
@@ -27,13 +30,14 @@ export function supportsWebGL(): boolean {
 export function createBaseMap(opts: BaseMapOptions): MapLibreMap | null {
   if (!supportsWebGL()) return null;
   if (!protocolRegistered) {
+    maplibregl.setWorkerUrl(workerUrl);
     maplibregl.addProtocol("pmtiles", new Protocol().tile);
     protocolRegistered = true;
   }
 
   const assets = import.meta.env.PUBLIC_MAP_ASSETS_URL || DEFAULT_ASSETS_PATH;
   const style = buildStyle({
-    pmtilesUrl: import.meta.env.PUBLIC_PMTILES_URL || DEFAULT_PMTILES_URL,
+    pmtilesUrl: new URL(import.meta.env.PUBLIC_PMTILES_URL || DEFAULT_PMTILES_URL, window.location.href).href,
     assetsUrl: new URL(assets, window.location.href).href.replace(/\/$/, ""),
   });
 

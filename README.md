@@ -23,3 +23,16 @@ pnpm data:check     # validate data/projects.csv and print totals
 Column rules: `status` ∈ completed | under_construction | permitted | approved | planning;
 `program` ∈ lasalle | private; `confidence` ∈ dpd | reported; `sources` are URLs separated by ` | `;
 numbers are plain digits (no `$`, `~`, commas); empty cells mean unknown.
+
+## Map tiles
+
+Production tiles are served from Cloudflare R2 at https://tiles.monroeresidential.com/chicago.pmtiles.
+For local development, extract the same area once (the dev server serves it at `/dev-tiles/chicago.pmtiles`):
+
+```bash
+mkdir -p tiles
+gh release download --repo protomaps/go-pmtiles --pattern '*Darwin_arm64.zip' --dir tiles
+unzip -o tiles/*Darwin_arm64.zip -d tiles/bin
+BUILD=$(curl -s https://build-metadata.protomaps.dev/builds.json | python3 -c 'import sys,json;print(json.load(sys.stdin)[-1]["key"])')
+tiles/bin/pmtiles extract "https://build.protomaps.com/$BUILD" tiles/chicago.pmtiles --bbox=-87.78,41.80,-87.56,41.97 --maxzoom=15
+```
