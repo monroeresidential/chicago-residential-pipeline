@@ -11,13 +11,17 @@ describe("popupHtml", () => {
     expect(html).toContain('href="/projects/111-w-monroe"');
   });
 
-  it("falls back to the address and omits missing numbers", () => {
-    const html = popupHtml(makeProject({ name: null, address: "118 S. Clinton St", units: 74, tpc_musd: null, confidence: "reported" }));
+  it("falls back to the address and shows an em dash for missing numbers", () => {
+    const html = popupHtml(makeProject({ name: null, address: "118 S. Clinton St", units: 74, tpc_musd: null, confidence: "reported", program: "private" }));
     expect(html).toContain("118 S. Clinton St");
-    expect(html).toContain("74 units");
-    expect(html).not.toContain("·  ");
+    expect(html).toContain("74 units · —");
     expect(html).not.toContain("null");
     expect(html).toContain("Reported");
+  });
+
+  it("shows the program", () => {
+    expect(popupHtml(makeProject({ program: "lasalle" }))).toContain("LaSalle Reimagined");
+    expect(popupHtml(makeProject({ program: "private" }))).toContain("Private market");
   });
 
   it("escapes HTML in data", () => {

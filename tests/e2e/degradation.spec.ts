@@ -34,3 +34,11 @@ test("the MapLibre web worker loads in the production build", async ({ page }) =
   await page.waitForTimeout(1500);
   expect(errors).toEqual([]);
 });
+
+test("the map does not depend on fetching project data (it is embedded in the page)", async ({ page }) => {
+  await page.route("**/data/projects.geojson", (route) => route.abort());
+  await page.goto("/");
+  await expect(page.locator(".marker:not([hidden])")).toHaveCount(27);
+  await page.locator("#filters").getByLabel("Completed").uncheck();
+  await expect(page.locator('#project-list li[data-id="79-w-monroe"]')).toBeHidden();
+});

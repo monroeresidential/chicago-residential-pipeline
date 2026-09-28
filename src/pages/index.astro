@@ -7,12 +7,15 @@ import Base from "../layouts/Base.astro";
 import { DATA_AS_OF } from "../lib/data-meta";
 import { sortProjects } from "../lib/filters";
 import { formatDate, formatMoney, formatUnits } from "../lib/format";
+import { toFeatureCollection } from "../lib/geojson";
 import { loadProjects } from "../lib/load-projects";
 import { countByStatus, totals } from "../lib/stats";
 import "../styles/map.css";
 
 const projects = loadProjects();
 const t = totals(projects);
+// Embedded so the map never waits on (or fails on) a second request. Same shape as /data/projects.geojson.
+const projectsJson = JSON.stringify(toFeatureCollection(projects, DATA_AS_OF)).replace(/</g, "\\u003c");
 const description = `${t.count} office-to-residential conversions in downtown Chicago: ${formatUnits(t.units)} units and ${formatMoney(t.tpcMusd)} in project costs, mapped by status.`;
 ---
 <Base title="Chicago Pipeline · Downtown Office-to-Residential Conversions" description={description} fullscreen>
@@ -37,6 +40,7 @@ const description = `${t.count} office-to-residential conversions in downtown Ch
     </aside>
     <MapView />
   </div>
+  <script is:inline type="application/json" id="projects-data" set:html={projectsJson} />
   <script>
     import { startMapApp } from "../scripts/map-app";
     startMapApp();

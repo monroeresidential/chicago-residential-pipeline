@@ -10,9 +10,9 @@ describe("data/projects.csv", () => {
   });
 
   it("matches the expected totals", () => {
-    expect(totals(projects)).toEqual({ count: 27, units: 4210, tpcMusd: 1839.8 });
+    expect(totals(projects)).toEqual({ count: 27, units: 4179, tpcMusd: 1839.8 });
     const dpd = projects.filter((p) => p.confidence === "dpd");
-    expect(totals(dpd)).toEqual({ count: 25, units: 3966, tpcMusd: 1799.8 });
+    expect(totals(dpd)).toEqual({ count: 25, units: 3935, tpcMusd: 1799.8 });
   });
 
   it("has DPD map numbers 1–25 exactly once", () => {
@@ -29,5 +29,13 @@ describe("data/projects.csv", () => {
   it("marks the six LaSalle projects and two Monroe projects", () => {
     expect(projects.filter((p) => p.program === "lasalle").map((p) => p.dpd_map_no)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(projects.filter((p) => p.monroe_url).map((p) => p.id)).toEqual(["116-122-w-illinois", "401-w-ontario"]);
+  });
+});
+
+describe("owner-confirmed figures", () => {
+  it("shows Birken Lofts at 57 units (confirmed by Monroe), noting DPD's 88", () => {
+    const birken = loadProjects().find((p) => p.id === "401-w-ontario")!;
+    expect(birken.units).toBe(57);
+    expect(birken.notes).toMatch(/88/);
   });
 });

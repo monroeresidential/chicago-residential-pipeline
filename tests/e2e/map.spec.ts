@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 
 test("shows all 27 projects with totals", async ({ page }) => {
   await expect(stat(page, "count")).toHaveText("27");
-  await expect(stat(page, "units")).toHaveText("4,210");
+  await expect(stat(page, "units")).toHaveText("4,179");
   await expect(stat(page, "tpc")).toHaveText("$1.84B");
   await expect(page.locator("#project-list li:not([hidden])")).toHaveCount(27);
   await expect(page.locator(".marker--reported")).toHaveCount(2);
@@ -21,7 +21,7 @@ test("filtering by status updates markers, list, totals and URL", async ({ page 
   await page.locator("#filters").getByLabel("Completed").uncheck();
   await expect(visibleMarkers(page)).toHaveCount(25);
   await expect(page.locator("#project-list li:not([hidden])")).toHaveCount(25);
-  await expect(stat(page, "units")).toHaveText("3,940");
+  await expect(stat(page, "units")).toHaveText("3,909");
   await expect(page).toHaveURL(/\?status=under_construction,permitted,approved,planning$/);
 });
 
@@ -76,4 +76,24 @@ test("the map fills its panel", async ({ page }) => {
   const wrap = await page.locator(".map-wrap").boundingBox();
   expect(box!.height).toBeGreaterThan(400);
   expect(box!.height).toBe(wrap!.height);
+});
+
+test("pressing Enter on a list row opens the project page (keyboard path)", async ({ page }) => {
+  await page.locator('a.project-row[data-id="401-w-ontario"]').focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/projects\/401-w-ontario$/);
+});
+
+test("campaign parameters survive filtering", async ({ page }) => {
+  await page.goto("/?utm_source=linkedin#top");
+  await expect(page.locator(".marker:not([hidden])")).toHaveCount(27);
+  await page.locator("#filters").getByLabel("Completed").uncheck();
+  await expect(page).toHaveURL(/\?utm_source=linkedin&status=under_construction,permitted,approved,planning#top$/);
+});
+
+test("the popup shows program and an em dash for unknown cost", async ({ page }) => {
+  await page.locator('.marker[data-id="118-s-clinton"]').dispatchEvent("click");
+  const popup = page.locator(".maplibregl-popup");
+  await expect(popup).toContainText("74 units · —");
+  await expect(popup).toContainText("Private market");
 });

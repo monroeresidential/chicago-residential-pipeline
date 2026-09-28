@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyFilters, DEFAULT_FILTERS, parseFilterState, reconcileSelection, serializeFilterState, sortProjects,
+  applyFilters, DEFAULT_FILTERS, mergeFilterSearch, parseFilterState, reconcileSelection, serializeFilterState, sortProjects,
 } from "../../src/lib/filters";
 import { makeProject } from "./fixtures";
 
@@ -67,5 +67,15 @@ describe("URL state", () => {
   });
   it("keeps valid values alongside invalid ones", () => {
     expect(parseFilterState("?status=bogus,approved", IDS).statuses).toEqual(["approved"]);
+  });
+});
+
+describe("mergeFilterSearch", () => {
+  it("keeps unrelated params (utm_*) while replacing filter params", () => {
+    const next = mergeFilterSearch("?utm_source=linkedin&status=approved&project=a", { ...DEFAULT_FILTERS, statuses: ["completed"], selected: null });
+    expect(next).toBe("?utm_source=linkedin&status=completed");
+  });
+  it("returns an empty string when nothing remains", () => {
+    expect(mergeFilterSearch("?status=approved", DEFAULT_FILTERS)).toBe("");
   });
 });

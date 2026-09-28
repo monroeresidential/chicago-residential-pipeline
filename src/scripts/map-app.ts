@@ -2,7 +2,7 @@ import * as maplibregl from "maplibre-gl";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
-  applyFilters, parseFilterState, reconcileSelection, serializeFilterState, sortProjects, type FilterState,
+  applyFilters, mergeFilterSearch, parseFilterState, reconcileSelection, sortProjects, type FilterState,
 } from "../lib/filters";
 import { featureToProject } from "../lib/geojson";
 import type { Project, ProjectCollection } from "../lib/schema";
@@ -14,11 +14,15 @@ import {
   applyOrder, bindSheet, readFilters, readSort, renderList, renderStats, scrollRowIntoView, writeFilters,
 } from "./sidebar";
 
-export const PROJECTS_URL = "/data/projects.geojson";
 const MOBILE = window.matchMedia("(max-width: 767px)");
 
-export async function startMapApp(): Promise<void> {
-  const collection = (await (await fetch(PROJECTS_URL)).json()) as ProjectCollection;
+/** Reads the FeatureCollection that index.astro embeds (same shape as /data/projects.geojson). */
+function readEmbeddedProjects(): ProjectCollection {
+  return JSON.parse(document.getElementById("projects-data")!.textContent!) as ProjectCollection;
+}
+
+export function startMapApp(): void {
+  const collection = readEmbeddedProjects();
   const projects = collection.features.map(featureToProject);
   const byId = new Map(projects.map((p) => [p.id, p]));
 
@@ -95,7 +99,8 @@ export async function startMapApp(): Promise<void> {
     renderList(sidebar, visibleIds, state.selected);
     if (!state.selected) closePopup();
     else if (popupId !== state.selected) openPopup(byId.get(state.selected)!);
-    window.history.replaceState(null, "", `${window.location.pathname}${serializeFilterState(state)}`);
+    const { pathname, search, hash } = window.location;
+    window.history.replaceState(null, "", `${pathname}${mergeFilterSearch(search, state)}${hash}`);
   }
 
   function select(id: string, { fly }: { fly: boolean }): void {
@@ -126,7 +131,9 @@ export async function startMapApp(): Promise<void> {
   list.addEventListener("click", (event) => {
     const row = (event.target as Element).closest<HTMLAnchorElement>("a.project-row");
     // Without a map, rows are plain links to project pages. Modified clicks open the page too.
-    if (!row || !map || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    // detail === 0 means keyboard activation: let Enter follow the link so keyboard and
+    // screen-reader users reach the project page.
+    if (!row || !map || event.detail === 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault();
     if (MOBILE.matches) sheet.collapse();
     select(row.dataset.id!, { fly: true });

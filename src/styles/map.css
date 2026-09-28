@@ -58,6 +58,7 @@
 .popup-title { margin: 0; font-size: 20px; }
 .popup-address { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
 .popup-meta { margin: 8px 0 0; font-size: 14px; }
+.popup-program { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
 .popup-flag { margin: 8px 0 0; font-size: 13px; color: var(--warn); }
 .popup-monroe { margin: 8px 0 0; font-size: 12px; font-weight: 600; color: var(--blue); }
 .popup-link { display: inline-block; margin-top: 12px; font-size: 14px; font-weight: 600; }

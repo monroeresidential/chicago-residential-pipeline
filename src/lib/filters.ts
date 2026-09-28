@@ -65,3 +65,14 @@ export function serializeFilterState(state: FilterState): string {
   if (state.selected) parts.push(`project=${encodeURIComponent(state.selected)}`);
   return parts.length > 0 ? `?${parts.join("&")}` : "";
 }
+
+const FILTER_PARAMS = ["status", "program", "project"];
+
+/** Rewrites only our filter params in `currentSearch`, keeping everything else (e.g. utm_* campaign tags). */
+export function mergeFilterSearch(currentSearch: string, state: FilterState): string {
+  const kept = new URLSearchParams(currentSearch);
+  for (const key of FILTER_PARAMS) kept.delete(key);
+  const ours = serializeFilterState(state).slice(1);
+  const parts = [kept.toString(), ours].filter(Boolean);
+  return parts.length > 0 ? `?${parts.join("&")}` : "";
+}

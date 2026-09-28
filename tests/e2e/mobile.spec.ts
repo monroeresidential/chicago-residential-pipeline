@@ -27,3 +27,10 @@ test("the map fills the screen behind the sheet", async ({ page }) => {
   const box = await page.locator("#map").boundingBox();
   expect(box!.height).toBeGreaterThan(500);
 });
+
+test("the sheet opens even before (or without) project data", async ({ page }) => {
+  await page.route("**/data/projects.geojson", (route) => route.abort());
+  await page.goto("/");
+  await page.locator(".sheet-handle").click();
+  await expect(page.locator("#sidebar")).toHaveAttribute("data-state", "expanded");
+});
