@@ -1,0 +1,50 @@
+---
+import { STATUS_COLORS, type Status } from "../lib/schema";
+
+interface Props {
+  lng: number;
+  lat: number;
+  status: Status;
+  label: string;
+}
+const { lng, lat, status, label } = Astro.props;
+---
+<div class="mini-map" role="img" aria-label={`Map showing ${label}`} data-lng={lng} data-lat={lat} data-color={STATUS_COLORS[status]}></div>
+
+<script>
+  // MapLibre stays out of the initial bundle: it's imported only when the mini-map nears the viewport.
+  for (const el of document.querySelectorAll<HTMLElement>(".mini-map")) {
+    const observer = new IntersectionObserver(async (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      const [{ createBaseMap }, maplibregl] = await Promise.all([
+        import("../map/basemap"),
+        import("maplibre-gl"),
+        import("maplibre-gl/dist/maplibre-gl.css"),
+      ]);
+      const center: [number, number] = [Number(el.dataset.lng), Number(el.dataset.lat)];
+      const map = createBaseMap({
+        container: el,
+        center,
+        zoom: 15.5,
+        interactive: false,
+        onTileError: () => el.classList.add("is-unavailable"),
+      });
+      if (!map) {
+        el.classList.add("is-unavailable");
+        return;
+      }
+      const pin = document.createElement("div");
+      pin.className = "mini-map-pin";
+      pin.style.background = el.dataset.color!;
+      new maplibregl.Marker({ element: pin }).setLngLat(center).addTo(map);
+    }, { rootMargin: "200px" });
+    observer.observe(el);
+  }
+</script>
+
+<style>
+  .mini-map { position: relative; aspect-ratio: 4 / 3; background: var(--surface); border: 1px solid var(--line); }
+  .mini-map.is-unavailable::after { content: "Map unavailable"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+  :global(.mini-map-pin) { width: 20px; height: 20px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 1px 4px rgb(0 5 27 / 0.4); }
+</style>
