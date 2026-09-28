@@ -2,6 +2,10 @@ node_modules/
 dist/
 .astro/
 .wrangler/
-.env*
+.env
+.env.production
 .DS_Store
-public/data/projects.geojson
+tiles/
+test-results/
+playwright-report/
+.superpowers/
