@@ -55,3 +55,25 @@ test("each project's Markdown matches its HTML page", async ({ page, request }) 
     expect(text).not.toMatch(/\bnull\b|undefined/);
   }
 });
+
+test("pages advertise their Markdown twin and llms.txt", async ({ page }) => {
+  for (const [path, md] of [["/", "/llms.txt"], ["/about", "/about.md"], ["/projects/111-w-monroe", "/projects/111-w-monroe.md"]] as const) {
+    await page.goto(path);
+    await expect(page.locator('link[rel="alternate"][type="text/markdown"]')).toHaveAttribute("href", md);
+    await expect(page.locator('link[rel="help"]')).toHaveAttribute("href", "/llms.txt");
+  }
+});
+
+test("About page has a section for AI agents and developers", async ({ page }) => {
+  await page.goto("/about");
+  const section = page.locator("#for-agents");
+  await expect(section.getByRole("heading")).toHaveText("For AI agents and developers");
+  await expect(section.getByRole("link", { name: "/llms.txt" }).first()).toHaveAttribute("href", "/llms.txt");
+});
+
+test("home Dataset JSON-LD lists CSV and JSON downloads", async ({ page }) => {
+  await page.goto("/");
+  const data = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!);
+  const formats = data.distribution.map((d: { encodingFormat: string }) => d.encodingFormat);
+  expect(formats).toEqual(["application/geo+json", "text/csv", "application/json"]);
+});

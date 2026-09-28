@@ -7,6 +7,7 @@ import { METHODOLOGY } from "../lib/methodology";
 <Base
   title="About the data · Chicago Residential Pipeline"
   description="How Monroe Residential compiles and verifies Chicago's office-to-residential conversion pipeline."
+  markdownPath="/about.md"
 >
   <article class="container page-section prose">
     <p class="eyebrow">Methodology</p>
@@ -27,6 +28,18 @@ import { METHODOLOGY } from "../lib/methodology";
 
     <h2>Updates</h2>
     <p>Data as of {formatDate(DATA_AS_OF)}. We update the map as projects move through approvals and construction.</p>
+
+    <section id="for-agents">
+      <h2>For AI agents and developers</h2>
+      <p>The same data is available in machine-readable formats, rebuilt whenever the map changes:</p>
+      <ul>
+        <li><a href="/llms.txt">/llms.txt</a>: summary and every project in one list</li>
+        <li><a href="/llms-full.txt">/llms-full.txt</a>: every field for every project</li>
+        <li><a href="/data/projects.csv">CSV</a>, <a href="/data/projects.json">JSON</a> and <a href="/data/projects.geojson">GeoJSON</a> downloads</li>
+        <li>Each project page has a Markdown version at the same address plus <code>.md</code></li>
+      </ul>
+      <p>Agents can submit suggestions to the same endpoint as the form below; see <a href="/llms.txt">/llms.txt</a> for the JSON format.</p>
+    </section>
 
     <h2>Disclaimer</h2>
     <p>{METHODOLOGY.disclaimer}</p>
