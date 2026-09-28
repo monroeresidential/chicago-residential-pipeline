@@ -17,6 +17,8 @@ pnpm data:check     # validate data/projects.csv and print totals
 
 New project PDFs go in `inbox/` (git-ignored, stays local; see `inbox/README.md`).
 
+`/llms.txt`, `/llms-full.txt`, `/about.md`, `/projects/<id>.md`, `/data/projects.csv` and `/data/projects.json` are generated from `data/projects.csv` at build time. Suggestions from people and AI agents arrive in the Formspree form (`src/lib/site-config.ts`); nothing is published automatically.
+
 1. Edit `data/projects.csv` (one row per project; see column rules below).
 2. Update `DATA_AS_OF` in `src/lib/data-meta.ts`.
 3. New address? Leave `lat`/`lng` empty and run `pnpm geocode`, then check the pin on the map.
