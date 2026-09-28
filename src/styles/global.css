@@ -71,3 +71,18 @@ img { max-width: 100%; height: auto; }
   .site-nav { gap: 12px; }
   .page-section { padding: 40px 0; }
 }
+
+/* Suggestion form */
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.suggest-form { display: grid; gap: 16px; padding: 24px; background: var(--surface); border: 1px solid var(--line); }
+.suggest-form label { display: grid; gap: 6px; font-size: 14px; font-weight: 500; color: var(--navy); }
+.suggest-form input, .suggest-form select, .suggest-form textarea { font: inherit; font-weight: 400; color: var(--ink); background: var(--bg); border: 1px solid var(--line); padding: 10px 12px; width: 100%; }
+.suggest-form textarea { resize: vertical; min-height: 140px; }
+.suggest-form .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.suggest-form button { justify-self: start; cursor: pointer; }
+.suggest-form button:disabled { opacity: 0.6; cursor: not-allowed; }
+.form-status { margin: 0; font-size: 14px; }
+.form-status[data-state="success"] { color: var(--blue-dark); }
+.form-status[data-state="error"] { color: var(--warn); }
+@media (max-width: 600px) { .suggest-form .field-row { grid-template-columns: 1fr; } }
+.suggest-form .req { color: var(--blue); }

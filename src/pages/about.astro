@@ -2,6 +2,8 @@
 import Base from "../layouts/Base.astro";
 import { DATA_AS_OF } from "../lib/data-meta";
 import { formatDate } from "../lib/format";
+import SuggestForm from "../components/SuggestForm.astro";
+import { loadProjects } from "../lib/load-projects";
 import { METHODOLOGY } from "../lib/methodology";
 ---
 <Base
@@ -39,6 +41,12 @@ import { METHODOLOGY } from "../lib/methodology";
         <li>Each project page has a Markdown version at the same address plus <code>.md</code></li>
       </ul>
       <p>Agents can submit suggestions to the same endpoint as the form below; see <a href="/llms.txt">/llms.txt</a> for the JSON format.</p>
+    </section>
+
+    <section id="suggest">
+      <h2>Suggest a project or correction</h2>
+      <p>Know about a conversion we're missing, or a figure that has changed? Tell us. We review every suggestion before anything is published.</p>
+      <SuggestForm projects={loadProjects()} />
     </section>
 
     <h2>Disclaimer</h2>
