@@ -78,8 +78,8 @@ export async function renderOgImage({ eyebrow, title, subtitle, background, capt
         div({ fontSize: 30, color: "#C9D2DC", marginTop: 24, lineHeight: 1.35 }, subtitle),
       ]),
       div({ display: "flex", justifyContent: "space-between", fontSize: 20, color: "#8FB3CF" }, [
-        div({}, background ? "pipeline.monroeresidential.com" : "Monroe Residential Partners"),
-        div({}, caption ?? "pipeline.monroeresidential.com"),
+        div({}, background ? "chicagopipeline.com" : "Monroe Residential Partners"),
+        div({}, caption ?? "chicagopipeline.com"),
       ]),
     ],
   );

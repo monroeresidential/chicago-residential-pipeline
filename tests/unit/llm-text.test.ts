@@ -3,7 +3,7 @@ import { llmsFullTxt, llmsTxt, mdEscape, projectLine, projectMarkdown, aboutMark
 import { loadProjects } from "../../src/lib/load-projects";
 import { makeProject } from "./fixtures";
 
-const SITE = "https://pipeline.monroeresidential.com";
+const SITE = "https://chicagopipeline.com";
 const FORM = "https://formspree.io/f/maenaqbd";
 const projects = loadProjects();
 
@@ -16,7 +16,7 @@ describe("mdEscape", () => {
 describe("projectLine", () => {
   it("links the project's Markdown page and lists key facts", () => {
     expect(projectLine(makeProject(), SITE)).toBe(
-      "- [111 W. Monroe St — Harris Bank building](https://pipeline.monroeresidential.com/projects/111-w-monroe.md): 345 units, $179M, Approved, LaSalle Reimagined",
+      "- [111 W. Monroe St — Harris Bank building](https://chicagopipeline.com/projects/111-w-monroe.md): 345 units, $179M, Approved, LaSalle Reimagined",
     );
   });
 
@@ -79,7 +79,7 @@ describe("projectMarkdown", () => {
     expect(md.startsWith("# Harris Bank building\n")).toBe(true);
     expect(md).toContain("- Developer: —");
     expect(md).toContain("- Units: 345");
-    expect(md).toContain("- Project page: https://pipeline.monroeresidential.com/projects/111-w-monroe");
+    expect(md).toContain("- Project page: https://chicagopipeline.com/projects/111-w-monroe");
     expect(md).toContain("Data as of 2026-09-28");
   });
 });
@@ -97,7 +97,7 @@ describe("agent instructions (final review fixes)", () => {
   const section = suggestSection(FORM, SITE);
 
   it("points to the real form URL and gives a curl example", () => {
-    expect(section).toContain("https://pipeline.monroeresidential.com/about#suggest");
+    expect(section).toContain("https://chicagopipeline.com/about#suggest");
     expect(section).not.toContain("bottom of the About page");
     expect(section).toContain(`curl -X POST ${FORM}`);
     expect(section).toContain("-H 'Accept: application/json' -H 'Content-Type: application/json'");

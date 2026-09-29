@@ -2,11 +2,19 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "chicago-pipeline",
   "compatibility_date": "2026-09-28",
+  // Redirects www + the old pipeline.monroeresidential.com to chicagopipeline.com, then serves dist/.
+  "main": "src/worker.ts",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "404-page"
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": true
   },
-  "routes": [{ "pattern": "pipeline.monroeresidential.com", "custom_domain": true }],
+  "routes": [
+    { "pattern": "chicagopipeline.com", "custom_domain": true },
+    { "pattern": "www.chicagopipeline.com", "custom_domain": true },
+    { "pattern": "pipeline.monroeresidential.com", "custom_domain": true }
+  ],
   // Required by `wrangler preview`, which Workers Builds runs for PR/branch preview builds.
   "previews": {},
   // Each preview gets https://<preview-name>-chicago-pipeline.<subdomain>.workers.dev

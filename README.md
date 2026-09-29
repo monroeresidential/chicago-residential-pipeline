@@ -1,7 +1,7 @@
 # Chicago Pipeline
 
 Interactive map of Chicago's office-to-residential conversion pipeline.
-Live at https://pipeline.monroeresidential.com.
+Live at https://chicagopipeline.com (www and the old pipeline.monroeresidential.com redirect there).
 
 ## Develop
 
