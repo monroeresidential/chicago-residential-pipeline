@@ -1,4 +1,5 @@
-import { PROGRAMS, STATUSES, type Program, type Project, type Status } from "./schema";
+import { PROGRAMS, STATUSES, type Program, type Status } from "./constants";
+import type { Project } from "./schema";
 
 export interface FilterState {
   statuses: Status[];

@@ -1,36 +1,11 @@
 import { z } from "zod";
 
-export const STATUSES = ["completed", "under_construction", "permitted", "approved", "planning"] as const;
+import { DOWNTOWN_BBOX, PROGRAMS, STATUSES } from "./constants";
+
+export * from "./constants";
+
 export const StatusSchema = z.enum(STATUSES);
-export type Status = z.infer<typeof StatusSchema>;
-
-export const STATUS_LABELS: Record<Status, string> = {
-  completed: "Completed",
-  under_construction: "Under construction",
-  permitted: "Permitted",
-  approved: "Approved",
-  planning: "Planning",
-};
-
-export const STATUS_COLORS: Record<Status, string> = {
-  completed: "#00051B",
-  under_construction: "#33709B",
-  permitted: "#2E8B7A",
-  approved: "#C28A2C",
-  planning: "#8C96A3",
-};
-
-export const PROGRAMS = ["lasalle", "private"] as const;
 export const ProgramSchema = z.enum(PROGRAMS);
-export type Program = z.infer<typeof ProgramSchema>;
-
-export const PROGRAM_LABELS: Record<Program, string> = {
-  lasalle: "LaSalle Reimagined",
-  private: "Private market",
-};
-
-// Loose box around downtown Chicago; catches geocoder mistakes (wrong city, swapped lat/lng).
-export const DOWNTOWN_BBOX = { minLng: -87.72, minLat: 41.84, maxLng: -87.58, maxLat: 41.93 } as const;
 
 export const ProjectSchema = z.object({
   id: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "must be a lowercase slug"),

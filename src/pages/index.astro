@@ -60,7 +60,10 @@ const jsonLd = {
   <script>
     // Paint the sidebar first, then fetch and start the map: statically importing MapLibre (~290 KB)
     // made the browser download and run it before the first frame (first paint waited for the map).
-    const start = () => import("../scripts/map-app").then(({ startMapApp }) => startMapApp());
+    // The phone sheet handle works immediately, even before the map code arrives.
+    import { bindSheet } from "../scripts/sidebar";
+    const sheet = bindSheet(document.getElementById("sidebar")!);
+    const start = () => import("../scripts/map-app").then(({ startMapApp }) => startMapApp(sheet));
     requestAnimationFrame(() => setTimeout(start, 0));
   </script>
 </Base>

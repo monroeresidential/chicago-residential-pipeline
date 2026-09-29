@@ -116,6 +116,9 @@ test("the map code loads after first paint, not as part of the page's initial sc
     const js = await (await request.get(src)).text();
     expect(js, src).not.toMatch(/from\s*["']\.\/maplibre-gl/);
     expect(js, src).not.toMatch(/import\s*["']\.\/maplibre-gl/);
+    // Build-time validation (Zod) must not ship to the browser, and the entry script stays small.
+    expect(js, src).not.toContain("_zod");
+    expect(js.length, src).toBeLessThan(20_000);
   }
   // …and the page paints before the map exists.
   await page.goto("/");

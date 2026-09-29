@@ -11,7 +11,7 @@ import { createBaseMap } from "../map/basemap";
 import { createMarkerElement } from "../map/markers";
 import { popupHtml } from "../map/popup";
 import {
-  applyOrder, bindSheet, readFilters, readSort, renderList, renderStats, scrollRowIntoView, writeFilters,
+  applyOrder, readFilters, readSort, renderList, renderStats, scrollRowIntoView, writeFilters,
 } from "./sidebar";
 
 const MOBILE = window.matchMedia("(max-width: 767px)");
@@ -21,7 +21,8 @@ function readEmbeddedProjects(): ProjectCollection {
   return JSON.parse(document.getElementById("projects-data")!.textContent!) as ProjectCollection;
 }
 
-export function startMapApp(): void {
+/** `sheet` is the already-bound phone bottom sheet (bound eagerly in index.astro). */
+export function startMapApp(sheet: { collapse(): void }): void {
   const collection = readEmbeddedProjects();
   const projects = collection.features.map(featureToProject);
   const byId = new Map(projects.map((p) => [p.id, p]));
@@ -30,7 +31,6 @@ export function startMapApp(): void {
   const form = document.getElementById("filters") as HTMLFormElement;
   const list = document.getElementById("project-list")!;
   const container = document.getElementById("map")!;
-  const sheet = bindSheet(sidebar);
 
   let state: FilterState = parseFilterState(window.location.search, [...byId.keys()]);
   writeFilters(sidebar, state);

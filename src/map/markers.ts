@@ -1,5 +1,6 @@
 import { displayName, formatUnits } from "../lib/format";
-import { STATUS_COLORS, STATUS_LABELS, type Project } from "../lib/schema";
+import { STATUS_COLORS, STATUS_LABELS } from "../lib/constants";
+import type { Project } from "../lib/schema";
 
 export function markerSize(units: number | null): number {
   return Math.round(16 + Math.sqrt(units ?? 0));
