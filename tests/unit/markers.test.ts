@@ -3,9 +3,9 @@ import { markerLabel, markerSize } from "../../src/map/markers";
 import { makeProject } from "./fixtures";
 
 describe("markerSize", () => {
-  it("scales with the square root of units, with a 16px floor", () => {
-    expect(markerSize(null)).toBe(16);
-    expect(markerSize(28)).toBe(21);
+  it("scales with the square root of units, with a 24px floor (WCAG 2.5.8 target size)", () => {
+    expect(markerSize(null)).toBe(24);
+    expect(markerSize(28)).toBe(27);
     expect(markerSize(400)).toBe(36);
     expect(markerSize(100)).toBeLessThan(markerSize(400));
   });

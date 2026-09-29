@@ -14,3 +14,11 @@
 
 /data/projects.csv
   Content-Type: text/csv; charset=utf-8
+
+# Map label glyphs: Cloudflare only compresses known text-like types; .pbf defaults to octet-stream.
+/map-assets/fonts/*
+  Content-Type: application/x-protobuf
+
+# Fingerprinted Astro build output never changes under the same name.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable

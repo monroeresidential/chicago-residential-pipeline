@@ -60,3 +60,16 @@ test("Google Analytics is wired in but never fires off the production host", asy
   expect(gaRequests).toEqual([]);
   expect(await page.evaluate(() => "dataLayer" in window)).toBe(false);
 });
+
+test("the header logo is served at display size, not the 1042px original", async ({ page }) => {
+  await page.goto("/about");
+  const logo = page.getByRole("img", { name: "Monroe Residential Partners" });
+  const natural = await logo.evaluate((img: HTMLImageElement) => img.naturalWidth);
+  expect(natural).toBeLessThanOrEqual(324);
+  expect(natural).toBeGreaterThanOrEqual(216);
+});
+
+test("the map page preconnects to the tile server", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator('link[rel="preconnect"][href="https://tiles.monroeresidential.com"]')).toHaveAttribute("crossorigin", "");
+});

@@ -18,3 +18,16 @@ describe("public/_headers", () => {
     expect(block(path)).toContain(`Content-Type: ${type}`);
   });
 });
+
+describe("public/_headers performance rules", () => {
+  const rules = readFileSync("public/_headers", "utf8");
+  const block = (path: string) => rules.split(/\n(?=\/)/).find((b) => b.startsWith(`${path}\n`)) ?? "";
+
+  it("labels map glyphs as protobuf so Cloudflare compresses them", () => {
+    expect(block("/map-assets/fonts/*")).toContain("Content-Type: application/x-protobuf");
+  });
+
+  it("caches fingerprinted build assets for a year", () => {
+    expect(block("/_astro/*")).toContain("Cache-Control: public, max-age=31536000, immutable");
+  });
+});

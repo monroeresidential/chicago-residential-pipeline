@@ -30,7 +30,11 @@ export function readSort(root: ParentNode): SortKey {
 
 export function renderStats(root: ParentNode, t: Totals): void {
   const text: Record<string, string> = { count: String(t.count), units: formatUnits(t.units), tpc: formatMoney(t.tpcMusd) };
-  for (const el of root.querySelectorAll<HTMLElement>("[data-stat]")) el.textContent = text[el.dataset.stat!] ?? "";
+  for (const el of root.querySelectorAll<HTMLElement>("[data-stat]")) {
+    const next = text[el.dataset.stat!] ?? "";
+    // Rewriting identical text creates a new paint, which Lighthouse then counts as the page's LCP.
+    if (el.textContent !== next) el.textContent = next;
+  }
 }
 
 export function renderList(root: ParentNode, visibleIds: ReadonlySet<string>, selected: string | null): void {
