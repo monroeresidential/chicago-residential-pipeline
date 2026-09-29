@@ -2,7 +2,7 @@ import { displayName, formatUnits } from "../lib/format";
 import { STATUS_COLORS, STATUS_LABELS, type Project } from "../lib/schema";
 
 export function markerSize(units: number | null): number {
-  return Math.round(24 + Math.sqrt(units ?? 0) * 0.6);
+  return Math.round(16 + Math.sqrt(units ?? 0));
 }
 
 export function markerLabel(p: Project): string {

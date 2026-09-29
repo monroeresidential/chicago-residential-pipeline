@@ -58,7 +58,9 @@ const jsonLd = {
   </div>
   <script is:inline type="application/json" id="projects-data" set:html={projectsJson} />
   <script>
-    import { startMapApp } from "../scripts/map-app";
-    startMapApp();
+    // Paint the sidebar first, then fetch and start the map: statically importing MapLibre (~290 KB)
+    // made the browser download and run it before the first frame (first paint waited for the map).
+    const start = () => import("../scripts/map-app").then(({ startMapApp }) => startMapApp());
+    requestAnimationFrame(() => setTimeout(start, 0));
   </script>
 </Base>
