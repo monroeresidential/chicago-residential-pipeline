@@ -56,3 +56,9 @@ describe("215 W Ohio", () => {
     expect(p.sources).toEqual(["https://base3co.com/portfolio/215-w-ohio/"]);
   });
 });
+
+describe("620 N LaSalle name", () => {
+  it("uses the announced project name Sportmart Lofts", () => {
+    expect(loadProjects().find((x) => x.id === "620-n-lasalle")!.name).toBe("Sportmart Lofts");
+  });
+});
