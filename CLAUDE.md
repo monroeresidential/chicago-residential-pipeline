@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Public, Monroe Residential–branded map of Chicago's downtown office-to-residential conversion pipeline, live at https://pipeline.monroeresidential.com. Astro 7 static site, MapLibre GL 6 map, deployed to Cloudflare Workers static assets. Design spec and implementation plan (including accepted deviations) live in `docs/superpowers/`.
+Public, Monroe Residential–branded map of Chicago's downtown office-to-residential conversion pipeline, live at https://chicagopipeline.com (`www.` and the old `pipeline.monroeresidential.com` 301 to it via `src/worker.ts`). Astro 7 static site, MapLibre GL 6 map, deployed to Cloudflare Workers static assets. Design spec and implementation plan (including accepted deviations) live in `docs/superpowers/`.
 
 ## Commands
 
@@ -40,6 +40,8 @@ Enums (status order, labels, colors; programs) live in `schema.ts` and drive CSS
 **Map module split.** `src/map/style.ts` is pure (Protomaps `layers()` + `brand-flavor.ts` + a `buildings-3d` extrusion layer) and unit-tested; `src/map/basemap.ts` is DOM/WebGL. MapLibre 6 quirks handled there: no default export (`import * as maplibregl`), and its worker URL is built at runtime so it's bundled explicitly via `maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url` + `setWorkerUrl()` — removing that breaks tiles in production (guarded by an e2e test). `createBaseMap` returns `null` without WebGL; any map `error` event shows the "tiles unavailable" notice.
 
 **Assets.** Basemap tiles: `https://tiles.monroeresidential.com/chicago.pmtiles` (R2 bucket `chicago-pipeline-tiles`, CORS `*`; also used in local dev; refresh steps in README). Glyphs/sprites are served same-origin from `public/map-assets/` (copied once by `scripts/fetch-map-assets.sh`). `.map-wrap > .map` specificity is deliberate: it must beat `maplibre-gl.css`'s `.maplibregl-map { position: relative }` regardless of stylesheet order.
+
+**Worker.** `src/worker.ts` runs before static assets (`run_worker_first`): it 301s `www.chicagopipeline.com` and `pipeline.monroeresidential.com` to the same path on `https://chicagopipeline.com`, otherwise returns `env.ASSETS.fetch(request)`. Preview/workers.dev hosts are served normally.
 
 **URLs.** `build.format: "file"` + `trailingSlash: "never"` so `/projects/x` is served from `projects/x.html` on Workers with no redirect; `Base.astro` strips `.html`/`/index` when building canonical URLs.
 

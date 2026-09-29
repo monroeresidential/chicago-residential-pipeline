@@ -14,8 +14,18 @@ describe("wrangler.jsonc", () => {
     expect(config.preview_urls).toBe(true);
   });
 
-  it("keeps production on the custom domain and serves dist/", () => {
+  it("serves chicagopipeline.com (+ www and the old Monroe subdomain for redirects) from dist/", () => {
     expect(config.assets.directory).toBe("./dist");
-    expect(config.routes).toEqual([{ pattern: "pipeline.monroeresidential.com", custom_domain: true }]);
+    expect(config.routes).toEqual([
+      { pattern: "chicagopipeline.com", custom_domain: true },
+      { pattern: "www.chicagopipeline.com", custom_domain: true },
+      { pattern: "pipeline.monroeresidential.com", custom_domain: true },
+    ]);
+  });
+
+  it("runs the redirect worker before static assets", () => {
+    expect(config.main).toBe("src/worker.ts");
+    expect(config.assets.binding).toBe("ASSETS");
+    expect(config.assets.run_worker_first).toBe(true);
   });
 });

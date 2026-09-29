@@ -27,7 +27,7 @@ test("home page is branded and search-friendly", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveTitle(/^Chicago Residential Pipeline \| /);
   expect((await page.title()).length).toBeLessThanOrEqual(60);
-  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", "https://pipeline.monroeresidential.com/og/site.jpg");
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", "https://chicagopipeline.com/og/site.jpg");
   await expect(page.locator('meta[property="og:image:type"]')).toHaveAttribute("content", "image/jpeg");
   await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute("content", "en_US");
   await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute("content", /Chicago Residential Pipeline/);
@@ -46,8 +46,8 @@ test("project pages carry the site name in their titles", async ({ page }) => {
 
 test("sitemap lists project pages and robots.txt points to it", async ({ request }) => {
   const sitemap = await (await request.get("/sitemap-0.xml")).text();
-  expect(sitemap).toContain("https://pipeline.monroeresidential.com/projects/111-w-monroe<");
+  expect(sitemap).toContain("https://chicagopipeline.com/projects/111-w-monroe<");
   expect(sitemap).not.toContain("/og/");
   const robots = await (await request.get("/robots.txt")).text();
-  expect(robots).toContain("Sitemap: https://pipeline.monroeresidential.com/sitemap-index.xml");
+  expect(robots).toContain("Sitemap: https://chicagopipeline.com/sitemap-index.xml");
 });

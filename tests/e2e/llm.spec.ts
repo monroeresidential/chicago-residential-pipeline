@@ -23,7 +23,7 @@ test("llms.txt lists every project and every link resolves", async ({ request })
   const geo = await (await request.get("/data/projects.geojson")).json();
   const projectLines = txt.split("\n").filter((l) => l.startsWith("- [") && l.includes("/projects/"));
   expect(projectLines).toHaveLength(geo.features.length);
-  const links = [...txt.matchAll(/\]\((https:\/\/pipeline\.monroeresidential\.com[^)]*)\)/g)].map((m) => m[1]!);
+  const links = [...txt.matchAll(/\]\((https:\/\/chicagopipeline\.com[^)]*)\)/g)].map((m) => m[1]!);
   expect(links.length).toBeGreaterThan(geo.features.length);
   for (const link of links) {
     const path = new URL(link).pathname;
