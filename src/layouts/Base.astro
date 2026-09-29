@@ -18,8 +18,10 @@ interface Props {
   fullscreen?: boolean;
   /** Site-relative path of this page's Markdown twin, for LLMs and agents. */
   markdownPath?: string;
+  /** Origins to open connections to early (e.g. the map tile server). */
+  preconnect?: string[];
 }
-const { title, description, ogImage = "/og/site.jpg", jsonLd, fullscreen = false, markdownPath } = Astro.props;
+const { title, description, ogImage = "/og/site.jpg", jsonLd, fullscreen = false, markdownPath, preconnect = [] } = Astro.props;
 // With build.format "file", strip any .html / trailing /index so canonical URLs match the links we publish.
 const canonicalPath = Astro.url.pathname.replace(/\.html$/, "").replace(/\/index$/, "/");
 const canonical = new URL(canonicalPath, Astro.site).href;
@@ -38,6 +40,7 @@ const jsonLdText = jsonLd ? JSON.stringify(jsonLd).replace(/</g, "\\u003c") : nu
     <link rel="canonical" href={canonical} />
     {markdownPath && <link rel="alternate" type="text/markdown" href={markdownPath} />}
     <link rel="help" type="text/plain" href="/llms.txt" title="LLM-readable summary" />
+    {preconnect.map((origin) => <link rel="preconnect" href={origin} crossorigin />)}
     <meta name="theme-color" content="#00051B" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />

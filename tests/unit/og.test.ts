@@ -40,3 +40,13 @@ describe("renderOgImage", () => {
     expect([...img.slice(0, 3)]).toEqual(JPEG);
   }, 20_000);
 });
+
+describe("share image encoding", () => {
+  // Some link-preview renderers (Signal, WhatsApp) fail on progressive JPEGs; emit baseline (SOF0).
+  it("renders a baseline, not progressive, JPEG", async () => {
+    const img = new Uint8Array(await renderOgImage(siteOgContent([makeProject()])));
+    const markers: number[] = [];
+    for (let i = 2; i < img.length - 1; i++) if (img[i] === 0xff && img[i + 1]! >= 0xc0 && img[i + 1]! <= 0xc2) { markers.push(img[i + 1]!); break; }
+    expect(markers).toEqual([0xc0]);
+  }, 20_000);
+});

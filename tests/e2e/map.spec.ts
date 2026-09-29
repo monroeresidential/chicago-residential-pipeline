@@ -97,3 +97,12 @@ test("the popup shows program and an em dash for unknown cost", async ({ page })
   await expect(popup).toContainText("74 units · —");
   await expect(popup).toContainText("Private market");
 });
+
+test("stats text is not rewritten when values are unchanged (keeps LCP at first paint)", async ({ page }) => {
+  await page.goto("/");
+  const node = await page.locator('.stats [data-stat="units"]').evaluateHandle((el) => el.firstChild);
+  await page.locator("#filters").getByLabel("Completed").check(); // no-op: already checked → render() with same totals
+  await page.evaluate(() => document.querySelector("#filters")!.dispatchEvent(new Event("change", { bubbles: true })));
+  const same = await page.locator('.stats [data-stat="units"]').evaluate((el, n) => el.firstChild === n, node);
+  expect(same).toBe(true);
+});

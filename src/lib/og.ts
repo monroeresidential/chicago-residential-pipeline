@@ -89,6 +89,7 @@ export async function renderOgImage({ eyebrow, title, subtitle, background, capt
   );
   const svg = await satori(tree as unknown as Parameters<typeof satori>[0], { width: 1200, height: 630, fonts: loadFonts() });
   const png = new Resvg(svg).render().asPng();
-  const jpeg = await sharp(png).jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+  // Baseline JPEG: some link previewers (Signal, WhatsApp) fail on progressive; sharp's mozjpeg preset forces progressive.
+  const jpeg = await sharp(png).jpeg({ quality: 82, progressive: false }).toBuffer();
   return jpeg.buffer.slice(jpeg.byteOffset, jpeg.byteOffset + jpeg.byteLength) as ArrayBuffer;
 }

@@ -10,6 +10,7 @@ import { formatDate, formatMoney, formatUnits } from "../lib/format";
 import { toFeatureCollection } from "../lib/geojson";
 import { loadProjects } from "../lib/load-projects";
 import { countByStatus, totals } from "../lib/stats";
+import { DEFAULT_PMTILES_URL } from "../map/style";
 import "../styles/map.css";
 
 const projects = loadProjects();
@@ -33,7 +34,7 @@ const jsonLd = {
   ],
 };
 ---
-<Base title="Chicago Residential Pipeline | Office Conversions Map" description={description} jsonLd={jsonLd} markdownPath="/llms.txt" fullscreen>
+<Base title="Chicago Residential Pipeline | Office Conversions Map" description={description} jsonLd={jsonLd} markdownPath="/llms.txt" preconnect={[new URL(DEFAULT_PMTILES_URL).origin]} fullscreen>
   <div class="app-shell">
     <aside id="sidebar" class="sidebar" data-state="collapsed" aria-label="Projects">
       <button type="button" class="sheet-handle" aria-expanded="false" aria-controls="sidebar-body">
