@@ -1,6 +1,6 @@
 import type { FilterState, SortKey } from "../lib/filters";
 import { formatMoney, formatUnits } from "../lib/format";
-import { PROGRAMS, STATUSES } from "../lib/schema";
+import { PROGRAMS, STATUSES } from "../lib/constants";
 import type { Totals } from "../lib/stats";
 
 function checkedValues(root: ParentNode, name: string): string[] {

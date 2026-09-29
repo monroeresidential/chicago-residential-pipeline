@@ -106,3 +106,21 @@ test("stats text is not rewritten when values are unchanged (keeps LCP at first 
   const same = await page.locator('.stats [data-stat="units"]').evaluate((el, n) => el.firstChild === n, node);
   expect(same).toBe(true);
 });
+
+test("the map code loads after first paint, not as part of the page's initial script", async ({ page, request }) => {
+  const html = await (await request.get("/")).text();
+  // MapLibre must not be preloaded or statically imported by the entry script…
+  expect(html).not.toMatch(/rel="modulepreload"[^>]*maplibre/);
+  const entries = [...html.matchAll(/<script type="module" src="([^"]+)"/g)].map((m) => m[1]!);
+  for (const src of entries) {
+    const js = await (await request.get(src)).text();
+    expect(js, src).not.toMatch(/from\s*["']\.\/maplibre-gl/);
+    expect(js, src).not.toMatch(/import\s*["']\.\/maplibre-gl/);
+    // Build-time validation (Zod) must not ship to the browser, and the entry script stays small.
+    expect(js, src).not.toContain("_zod");
+    expect(js.length, src).toBeLessThan(20_000);
+  }
+  // …and the page paints before the map exists.
+  await page.goto("/");
+  await expect(page.locator(".marker:not([hidden])")).toHaveCount(29);
+});

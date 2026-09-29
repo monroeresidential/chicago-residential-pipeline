@@ -1,4 +1,5 @@
-import { STATUSES, type Project, type Status } from "./schema";
+import { STATUSES, type Status } from "./constants";
+import type { Project } from "./schema";
 
 export interface Totals {
   count: number;

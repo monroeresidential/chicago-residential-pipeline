@@ -1,5 +1,6 @@
 import { displayName, escapeHtml as e, formatMoney, formatUnits } from "../lib/format";
-import { PROGRAM_LABELS, STATUS_LABELS, type Project } from "../lib/schema";
+import { PROGRAM_LABELS, STATUS_LABELS } from "../lib/constants";
+import type { Project } from "../lib/schema";
 
 export function popupHtml(p: Project): string {
   const meta = `${formatUnits(p.units)} units · ${formatMoney(p.tpc_musd)}`;
