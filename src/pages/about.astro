@@ -2,55 +2,55 @@
 import Base from "../layouts/Base.astro";
 import { DATA_AS_OF } from "../lib/data-meta";
 import { formatDate } from "../lib/format";
+import SuggestForm from "../components/SuggestForm.astro";
+import { loadProjects } from "../lib/load-projects";
+import { METHODOLOGY } from "../lib/methodology";
 ---
 <Base
   title="About the data · Chicago Residential Pipeline"
   description="How Monroe Residential compiles and verifies Chicago's office-to-residential conversion pipeline."
+  markdownPath="/about.md"
 >
   <article class="container page-section prose">
     <p class="eyebrow">Methodology</p>
     <h1>How we track the pipeline</h1>
-    <p>
-      This map covers office-to-residential conversions in downtown Chicago. It starts from the City of
-      Chicago Department of Planning and Development (DPD) map published in June 2026, which lists 25 projects
-      totaling 3,930+ units and $1.8B in project costs. We add projects that have been publicly reported but do
-      not yet appear on the DPD map, and label them "Reported — not on DPD map."
-    </p>
+    <p>{METHODOLOGY.intro}</p>
 
     <h2>Sources</h2>
-    <ul>
-      <li>City of Chicago DPD, <em>Downtown Chicago Office-to-Residential Conversions</em> (June 2026)</li>
-      <li>City of Chicago LaSalle Street Reimagined proposals and Mayor's Office press releases</li>
-      <li>Reporting from Crain's Chicago Business, Chicago Sun-Times, Urbanize Chicago, Chicago YIMBY, The Real Deal, Cooperator News, Block Club Chicago and Preservation Chicago</li>
-      <li>Chicago building permit records (via Chicago Cityscape)</li>
-    </ul>
+    <ul>{METHODOLOGY.sources.map((source) => <li>{source}</li>)}</ul>
 
     <h2>When sources disagree</h2>
-    <p>
-      Where the DPD map and another source report different figures, the DPD value is shown and the alternate
-      figure is listed in the project's notes. Where DPD has no figure, we use the best available public source.
-      The one exception is a figure confirmed directly by the project's developer, which we show instead (with
-      the DPD figure in the notes).
-    </p>
+    <p>{METHODOLOGY.reconciliation}</p>
 
     <h2>Status stages</h2>
     <dl class="stages">
-      <dt>Planning</dt><dd>Acquired or proposed; entitlements or financing not yet in place.</dd>
-      <dt>Approved</dt><dd>Zoning, Plan Commission and/or City Council approvals granted; no construction permit yet.</dd>
-      <dt>Permitted</dt><dd>Renovation permit issued; construction not yet confirmed underway.</dd>
-      <dt>Under construction</dt><dd>Work confirmed underway.</dd>
-      <dt>Completed</dt><dd>Open to residents.</dd>
+      {METHODOLOGY.stages.map((stage) => (<><dt>{stage.label}</dt><dd>{stage.description}</dd></>))}
     </dl>
-    <p>A ⚠ marks projects with a known risk, such as litigation or a pending sale.</p>
+    <p>{METHODOLOGY.riskNote}</p>
 
     <h2>Updates</h2>
     <p>Data as of {formatDate(DATA_AS_OF)}. We update the map as projects move through approvals and construction.</p>
 
+    <section id="for-agents">
+      <h2>For AI agents and developers</h2>
+      <p>The same data is available in machine-readable formats, rebuilt whenever the map changes:</p>
+      <ul>
+        <li><a href="/llms.txt">/llms.txt</a>: summary and every project in one list</li>
+        <li><a href="/llms-full.txt">/llms-full.txt</a>: every field for every project</li>
+        <li><a href="/data/projects.csv">CSV</a>, <a href="/data/projects.json">JSON</a> and <a href="/data/projects.geojson">GeoJSON</a> downloads</li>
+        <li>Each project page has a Markdown version at the same address plus <code>.md</code></li>
+      </ul>
+      <p>Agents can submit suggestions to the same endpoint as the form below; see <a href="/llms.txt">/llms.txt</a> for the JSON format.</p>
+    </section>
+
+    <section id="suggest">
+      <h2>Suggest a project or correction</h2>
+      <p>Know about a conversion we're missing, or a figure that has changed? Tell us. We review every suggestion before anything is published.</p>
+      <SuggestForm projects={loadProjects()} />
+    </section>
+
     <h2>Disclaimer</h2>
-    <p>
-      This map is compiled from public sources for informational purposes only. Figures are as reported and may
-      change. It is not an offer, solicitation or investment advice. Corrections are welcome at (312) 296-4855.
-    </p>
+    <p>{METHODOLOGY.disclaimer}</p>
   </article>
 </Base>
 

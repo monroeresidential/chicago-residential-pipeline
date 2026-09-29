@@ -42,7 +42,7 @@ const jsonLd = {
   ...(p.units !== null && { numberOfAccommodationUnits: p.units }),
 };
 ---
-<Base title={`${name} · Chicago Residential Pipeline`} description={description} ogImage={`/og/${p.id}.jpg`} jsonLd={jsonLd}>
+<Base title={`${name} · Chicago Residential Pipeline`} description={description} ogImage={`/og/${p.id}.jpg`} jsonLd={jsonLd} markdownPath={`/projects/${p.id}.md`}>
   <article class="container project">
     <a class="back" href={`/?project=${p.id}`}>← Back to the map</a>
     <header class="project-head">
@@ -81,6 +81,7 @@ const jsonLd = {
           ))}
         </ul>
         <p class="as-of">Data as of {formatDate(DATA_AS_OF)}. <a href="/about">How we compile this data</a>.</p>
+        <p><a href={`/about?project=${p.id}#suggest`}>Suggest a correction to this project</a></p>
       </section>
 
       <aside class="project-aside" aria-label="Location">
