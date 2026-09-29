@@ -54,4 +54,4 @@ Enums (status order, labels, colors; programs) live in `schema.ts` and drive CSS
 
 ## Deploy
 
-Cloudflare Workers Builds (account `9441a00a44eb2bc68c2befd68119f256`, Worker `chicago-pipeline`, `wrangler.jsonc`) deploys every push to `main` and builds previews for other branches. It does not post GitHub checks; see the Worker's Deployments → Recent builds. Build variables: `NODE_VERSION=24`, optional `PUBLIC_CF_BEACON_TOKEN` (Cloudflare Web Analytics, rendered only when set).
+Cloudflare Workers Builds (account `9441a00a44eb2bc68c2befd68119f256`, Worker `chicago-pipeline`, `wrangler.jsonc`) deploys every push to `main` and builds previews for other branches. It does not post GitHub checks; see the Worker's Deployments → Recent builds. Build variables: `NODE_VERSION=24`, optional `PUBLIC_CF_BEACON_TOKEN` (Cloudflare Web Analytics, rendered only when set). Google Analytics 4 (`GA_MEASUREMENT_ID` in `src/lib/site-config.ts`) is loaded by `src/scripts/analytics.ts` only when the host is exactly `chicagopipeline.com`, so previews, localhost and tests never send hits.

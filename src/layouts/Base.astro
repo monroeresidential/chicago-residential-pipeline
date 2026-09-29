@@ -62,6 +62,11 @@ const jsonLdText = jsonLd ? JSON.stringify(jsonLd).replace(/</g, "\\u003c") : nu
     <meta name="twitter:image" content={ogUrl} />
     <meta name="twitter:card" content="summary_large_image" />
     {jsonLdText && <script is:inline type="application/ld+json" set:html={jsonLdText} />}
+    <script>
+      import { initAnalytics } from "../scripts/analytics";
+      import { GA_MEASUREMENT_ID } from "../lib/site-config";
+      initAnalytics(GA_MEASUREMENT_ID);
+    </script>
     {beaconToken && (
       <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify({ token: beaconToken })}></script>
     )}

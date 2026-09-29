@@ -51,3 +51,12 @@ test("sitemap lists project pages and robots.txt points to it", async ({ request
   const robots = await (await request.get("/robots.txt")).text();
   expect(robots).toContain("Sitemap: https://chicagopipeline.com/sitemap-index.xml");
 });
+
+test("Google Analytics is wired in but never fires off the production host", async ({ page }) => {
+  const gaRequests: string[] = [];
+  page.on("request", (r) => { if (/googletagmanager|google-analytics/.test(r.url())) gaRequests.push(r.url()); });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  expect(gaRequests).toEqual([]);
+  expect(await page.evaluate(() => "dataLayer" in window)).toBe(false);
+});
