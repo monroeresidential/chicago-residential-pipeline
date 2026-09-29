@@ -48,7 +48,7 @@ Enums (status order, labels, colors; programs) live in `schema.ts` and drive CSS
 - `status` ∈ completed | under_construction | permitted | approved | planning; `program` ∈ lasalle | private; `confidence` ∈ dpd | reported ("Reported — not on DPD map", hollow marker); `sources` are URLs separated by ` | ` (at least one); numbers are plain digits; empty cell = unknown, rendered as "—".
 - Reconciliation: the June 2026 DPD map value is shown and alternates go in `notes`, except figures confirmed directly by the developer (e.g. Birken Lofts 57 units). Projects with `monroe_url` get the Monroe badge.
 - `tests/unit/data.test.ts` pins the real dataset (count, totals, per-stage counts, Monroe ids) and `tests/e2e/*` assert marker counts and totals — update them when rows change.
-- The GitHub repo is **public**. `data/raw/` (original research CSV, DPD map image) and `inbox/` (project PDFs to process; see `inbox/README.md`) are git-ignored and must stay local. Only approved facts go into `data/projects.csv`.
+- The GitHub repo is **public**. `data/raw/` (original research CSV, DPD map image), `inbox/` (project PDFs to process; see `inbox/README.md`) and `private/` (full extractions of confidential documents: `deals.csv`, `rent-comps.csv`, `deals/<id>/{source.pdf,extract.md,extract.json}`; see `private/README.md`) are git-ignored and must stay local; `tests/unit/private-guard.test.ts` enforces it. Only already-public, user-approved facts go into `data/projects.csv` — never price, budget, rents or returns from a deck.
 
 ## Deploy
 

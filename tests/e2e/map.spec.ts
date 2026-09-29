@@ -5,23 +5,23 @@ const stat = (page: Page, key: string) => page.locator(`.stats [data-stat="${key
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await expect(visibleMarkers(page)).toHaveCount(28);
+  await expect(visibleMarkers(page)).toHaveCount(29);
 });
 
-test("shows all 28 projects with totals", async ({ page }) => {
-  await expect(stat(page, "count")).toHaveText("28");
-  await expect(stat(page, "units")).toHaveText("4,269");
+test("shows all 29 projects with totals", async ({ page }) => {
+  await expect(stat(page, "count")).toHaveText("29");
+  await expect(stat(page, "units")).toHaveText("4,321");
   await expect(stat(page, "tpc")).toHaveText("$1.84B");
-  await expect(page.locator("#project-list li:not([hidden])")).toHaveCount(28);
-  await expect(page.locator(".marker--reported")).toHaveCount(3);
+  await expect(page.locator("#project-list li:not([hidden])")).toHaveCount(29);
+  await expect(page.locator(".marker--reported")).toHaveCount(4);
   await expect(page.locator(".marker--monroe")).toHaveCount(3);
 });
 
 test("filtering by status updates markers, list, totals and URL", async ({ page }) => {
   await page.locator("#filters").getByLabel("Completed").uncheck();
-  await expect(visibleMarkers(page)).toHaveCount(26);
-  await expect(page.locator("#project-list li:not([hidden])")).toHaveCount(26);
-  await expect(stat(page, "units")).toHaveText("3,999");
+  await expect(visibleMarkers(page)).toHaveCount(27);
+  await expect(page.locator("#project-list li:not([hidden])")).toHaveCount(27);
+  await expect(stat(page, "units")).toHaveText("4,051");
   await expect(page).toHaveURL(/\?status=under_construction,permitted,approved,planning$/);
 });
 
@@ -86,7 +86,7 @@ test("pressing Enter on a list row opens the project page (keyboard path)", asyn
 
 test("campaign parameters survive filtering", async ({ page }) => {
   await page.goto("/?utm_source=linkedin#top");
-  await expect(page.locator(".marker:not([hidden])")).toHaveCount(28);
+  await expect(page.locator(".marker:not([hidden])")).toHaveCount(29);
   await page.locator("#filters").getByLabel("Completed").uncheck();
   await expect(page).toHaveURL(/\?utm_source=linkedin&status=under_construction,permitted,approved,planning#top$/);
 });

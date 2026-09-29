@@ -15,7 +15,7 @@ pnpm data:check     # validate data/projects.csv and print totals
 
 ## Updating project data
 
-New project PDFs go in `inbox/` (git-ignored, stays local; see `inbox/README.md`).
+New project PDFs go in `inbox/`; extracted deal data, assumptions and rent comps live in `private/`. Both are git-ignored and stay local (see `inbox/README.md`); a test fails if anything under them is ever tracked.
 
 `/llms.txt`, `/llms-full.txt`, `/about.md`, `/projects/<id>.md`, `/data/projects.csv` and `/data/projects.json` are generated from `data/projects.csv` at build time. Suggestions from people and AI agents arrive in the Formspree form (`src/lib/site-config.ts`); nothing is published automatically.
 Keep Formspree's **"Restrict to domain"** setting **off** for this form: agents POST without a `Referer` header, so a domain restriction silently sends their submissions to spam. The `_gotcha` honeypot and Formspree's spam filter still apply.

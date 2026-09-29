@@ -33,7 +33,7 @@ test("home page is branded and search-friendly", async ({ page }) => {
   await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute("content", /Chicago Residential Pipeline/);
   await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Chicago Residential Pipeline by Monroe Residential Partners");
   const description = await page.locator('meta[name="description"]').getAttribute("content");
-  expect(description).toMatch(/28 downtown Chicago office-to-residential conversions/);
+  expect(description).toMatch(/29 downtown Chicago office-to-residential conversions/);
   expect(description!.length).toBeLessThanOrEqual(160);
   const jsonLd = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!);
   expect(jsonLd["@type"]).toBe("Dataset");
