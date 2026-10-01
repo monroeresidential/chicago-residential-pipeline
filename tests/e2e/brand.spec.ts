@@ -1,12 +1,24 @@
 import { expect, test } from "@playwright/test";
 
-test("header carries the 3F Construction logo and a Contact 3F button", async ({ page }) => {
+test("header carries the Chicago Pipeline lockup and 3F links", async ({ page }) => {
   await page.goto("/about");
   const header = page.locator(".site-header");
-  await expect(header.getByRole("img", { name: "3F Construction" })).toBeVisible();
+  // One link for the whole lockup (stacked separate links were too close to tap: WCAG 2.5.8).
+  const lockup = header.locator("a.brand");
+  await expect(lockup).toHaveAttribute("href", "/");
+  await expect(lockup.locator(".brand-mark svg")).toHaveCount(1);
+  await expect(lockup.locator(".brand-wordmark")).toHaveText("Chicago Pipeline");
+  await expect(lockup.locator(".brand-by")).toHaveText("by 3F Construction");
+  await expect(header.getByRole("link", { name: "3fconstruction.net" })).toHaveAttribute("href", /utm_source=chicagopipeline/);
   await expect(header.getByRole("link", { name: "Contact 3F" })).toHaveAttribute("href", /3fconstruction\.net\/contact-chicago-commercial-general-contractor\/\?utm_source=chicagopipeline/);
 });
 
+test("footer carries the 3F and Monroe logos", async ({ page }) => {
+  await page.goto("/about");
+  const footer = page.locator("footer");
+  await expect(footer.getByRole("link", { name: "3F Construction" }).locator("img")).toHaveAttribute("src", "/brand/3f-logo.png");
+  await expect(footer.getByRole("link", { name: "Monroe Residential Partners" })).toHaveAttribute("href", "https://monroeresidential.com");
+});
 test("Monroe Residential appears only as a footer logo link", async ({ page }) => {
   for (const path of ["/", "/about", "/projects/401-w-ontario"]) {
     await page.goto(path);
@@ -39,7 +51,7 @@ test("Built by 3F projects are badged on the map, list and project pages", async
 
 test("site name and structured data credit 3F Construction", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Chicago Residential Pipeline by 3F Construction");
+  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Chicago Pipeline by 3F Construction");
   const ld = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!);
   expect(ld.creator).toMatchObject({ name: "3F Construction", url: "https://3fconstruction.net" });
   await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /By 3F Construction\.$/);

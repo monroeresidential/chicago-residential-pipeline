@@ -64,3 +64,9 @@ describe("620 N LaSalle name", () => {
     expect(loadProjects().find((x) => x.id === "620-n-lasalle")!.name).toBe("Sportmart Lofts");
   });
 });
+
+describe("Monroe only in the footer", () => {
+  it("project notes don't brand projects as Monroe projects", () => {
+    for (const p of loadProjects()) expect(p.notes ?? "", p.id).not.toMatch(/A Monroe Residential project/);
+  });
+});

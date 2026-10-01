@@ -13,8 +13,10 @@ const contrast = (a: string, b: string) => {
 const token = (name: string) => readFileSync("src/styles/global.css", "utf8").match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`))?.[1] ?? "";
 
 describe("3F brand tokens", () => {
-  it("uses 3F orange as the brand accent", () => {
-    expect(token("brand").toLowerCase()).toBe("#f26122");
+  it("uses the logo's 3F orange and ink", () => {
+    expect(token("brand").toLowerCase()).toBe("#f26430");
+    expect(token("charcoal").toLowerCase()).toBe("#201f1d");
+    expect(token("ground").toLowerCase()).toBe("#1b1a18");
   });
 
   it("buttons and links pass WCAG AA (4.5:1) — white on accent, accent on white", () => {
