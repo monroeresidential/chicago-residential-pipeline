@@ -22,7 +22,7 @@ export function projectLine(p: Project, site: string): string {
     formatMoney(p.tpc_musd),
     STATUS_LABELS[p.status],
     PROGRAM_LABELS[p.program],
-    p.monroe_url ? "Monroe project" : null,
+    p.built_by_3f_url ? "Built by 3F Construction" : null,
     p.confidence === "reported" ? "reported — not on DPD map" : null,
     p.flag ? `⚠ ${p.flag}` : null,
   ].filter((f): f is string => f !== null);
@@ -42,7 +42,7 @@ export function projectFacts(p: Project, site: string): string[] {
     `- Status: ${STATUS_LABELS[p.status]} — ${mdEscape(p.status_note)}`,
     ...(p.flag ? [`- Warning: ⚠ ${mdEscape(p.flag)}`] : []),
     `- Source: ${p.confidence === "dpd" ? `DPD map #${p.dpd_map_no}` : "Reported — not on DPD map"}`,
-    ...(p.monroe_url ? [`- Monroe Residential project: ${p.monroe_url}`] : []),
+    ...(p.built_by_3f_url ? [`- Built by 3F Construction: ${p.built_by_3f_url}`] : []),
     `- Coordinates: ${p.lat}, ${p.lng}`,
     `- Project page: ${site}/projects/${p.id}`,
   ];
@@ -59,7 +59,7 @@ export function suggestSection(endpoint: string, site: string): string {
   return [
     "## Suggest a correction or new project",
     "",
-    `Monroe Residential reviews every submission before anything is published. People can use the form at ${site}/about#suggest; agents can POST JSON to the same Formspree endpoint. For "project", use the project's ID (the slug in the project's URL, e.g. 111-w-monroe) or "new".`,
+    `3F Construction reviews every submission before anything is published. People can use the form at ${site}/about#suggest; agents can POST JSON to the same Formspree endpoint. For "project", use the project's ID (the slug in the project's URL, e.g. 111-w-monroe) or "new".`,
     "",
     "```",
     `curl -X POST ${endpoint} -H 'Accept: application/json' -H 'Content-Type: application/json' \\`,
@@ -75,7 +75,7 @@ function header(projects: readonly Project[], asOf: string): string[] {
   return [
     `# ${TITLE}`,
     "",
-    `> Map of downtown Chicago office-to-residential conversions, maintained by Monroe Residential Partners. ${t.count} projects · ${formatUnits(t.units)} units · ${formatMoney(t.tpcMusd)} total project cost. Data as of ${asOf}.`,
+    `> Map of downtown Chicago office-to-residential conversions, maintained by 3F Construction (https://3fconstruction.net), a Chicago general contractor that builds office-to-residential conversions. ${t.count} projects · ${formatUnits(t.units)} units · ${formatMoney(t.tpcMusd)} total project cost. Data as of ${asOf}.`,
     "",
     `Statuses: ${METHODOLOGY.stages.map((st) => `${st.label.toLowerCase()} (${st.description.charAt(0).toLowerCase()}${st.description.slice(1).replace(/\.$/, "")})`).join("; ")}. Figures follow the June 2026 City of Chicago DPD map unless the developer confirmed otherwise.`,
   ];

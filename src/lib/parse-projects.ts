@@ -3,7 +3,7 @@ import { ProjectSchema, type Project } from "./schema";
 
 export const CSV_COLUMNS = [
   "id", "dpd_map_no", "name", "address", "developer", "units", "affordable_units", "tpc_musd",
-  "program", "public_support", "status", "status_note", "flag", "confidence", "monroe_url",
+  "program", "public_support", "status", "status_note", "flag", "confidence", "built_by_3f_url",
   "lat", "lng", "sources", "notes",
 ] as const;
 

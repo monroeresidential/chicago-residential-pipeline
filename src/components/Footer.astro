@@ -1,18 +1,18 @@
 ---
+import CtaBand from "./CtaBand.astro";
 import { DATA_AS_OF } from "../lib/data-meta";
 import { formatDate } from "../lib/format";
+import { MONROE_URL, SITE_3F_URL } from "../lib/site-config";
 ---
 <footer class="site-footer">
-  <div class="container footer-cta">
-    <div>
-      <p class="eyebrow">Monroe Residential Partners</p>
-      <h2>Have a project in mind?</h2>
-      <p>We live to talk about the next great project. Let's build something extraordinary together.</p>
-    </div>
-    <a class="button" href="tel:+13122964855">(312) 296-4855</a>
+  <div class="container">
+    <CtaBand />
   </div>
   <div class="container footer-meta">
     <span>Data as of {formatDate(DATA_AS_OF)} · <a href="/about">Sources &amp; methodology</a> · <a href="/about#suggest">Suggest a correction</a></span>
-    <span>© {new Date().getFullYear()} <a href="https://monroeresidential.com">Monroe Residential Partners</a></span>
+    <span class="footer-credits">
+      © {new Date().getFullYear()} <a href={SITE_3F_URL}>3F Construction</a>
+      <a class="footer-monroe" href={MONROE_URL}><img src="/brand/monroe-logo.png" alt="Monroe Residential Partners" width="81" height="24" /></a>
+    </span>
   </div>
 </footer>

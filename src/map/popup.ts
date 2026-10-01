@@ -14,7 +14,7 @@ export function popupHtml(p: Project): string {
     `<p class="popup-meta">${e(meta)}</p>`,
     `<p class="popup-program">${e(PROGRAM_LABELS[p.program])}</p>`,
     p.flag ? `<p class="popup-flag">⚠ ${e(p.flag)}</p>` : "",
-    p.monroe_url ? `<p class="popup-monroe">A Monroe Residential project</p>` : "",
+    p.built_by_3f_url ? `<a class="popup-3f" href="${e(p.built_by_3f_url)}" target="_blank" rel="noopener">Built by 3F Construction →</a>` : "",
     `<a class="popup-link" href="/projects/${e(p.id)}">View details →</a>`,
     `</div>`,
   ].join("");

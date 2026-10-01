@@ -13,11 +13,11 @@ export const STATUS_LABELS: Record<Status, string> = {
 };
 
 export const STATUS_COLORS: Record<Status, string> = {
-  completed: "#00051B",
-  under_construction: "#33709B",
-  permitted: "#2E8B7A",
-  approved: "#C28A2C",
-  planning: "#8C96A3",
+  completed: "#2F3437",          // charcoal
+  under_construction: "#E04F16", // 3F orange
+  permitted: "#2E8B7A",          // teal
+  approved: "#3B6EA5",           // blue
+  planning: "#8C96A3",           // gray
 };
 
 export const PROGRAMS = ["lasalle", "private"] as const;

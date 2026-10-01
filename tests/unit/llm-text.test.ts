@@ -22,11 +22,11 @@ describe("projectLine", () => {
 
   it("shows — for missing values and adds markers", () => {
     const line = projectLine(
-      makeProject({ name: null, units: null, tpc_musd: null, confidence: "reported", monroe_url: "https://monroeresidential.com/portfolio", flag: "Listed for sale" }),
+      makeProject({ name: null, units: null, tpc_musd: null, confidence: "reported", built_by_3f_url: "https://3fconstruction.net/project/birken-lofts/", flag: "Listed for sale" }),
       SITE,
     );
     expect(line).toContain("— units, —,");
-    expect(line).toContain("Monroe project, reported — not on DPD map, ⚠ Listed for sale");
+    expect(line).toContain("Built by 3F Construction, reported — not on DPD map, ⚠ Listed for sale");
     expect(line).not.toMatch(/null|undefined/);
   });
 
@@ -112,5 +112,19 @@ describe("agent instructions (final review fixes)", () => {
     const txt = llmsTxt(projects, "2026-09-28", SITE, FORM);
     expect(txt).toContain("permitted (renovation permit issued; construction not yet confirmed underway)");
     expect(txt).toContain("planning (acquired or proposed; entitlements or financing not yet in place)");
+  });
+});
+
+describe("3F Construction branding in LLM formats", () => {
+  it("says the pipeline is maintained by 3F Construction", () => {
+    const txt = llmsTxt(projects, "2026-09-28", SITE, FORM);
+    expect(txt).toContain("maintained by 3F Construction");
+    expect(txt).not.toMatch(/Monroe Residential (reviews|Partners\. )/);
+    expect(suggestSection(FORM, SITE)).toContain("3F Construction reviews every submission");
+  });
+
+  it("links 3F-built projects to 3F's project page", () => {
+    const md = projectMarkdown(makeProject({ built_by_3f_url: "https://3fconstruction.net/project/birken-lofts/" }), "2026-09-28", SITE);
+    expect(md).toContain("- Built by 3F Construction: https://3fconstruction.net/project/birken-lofts/");
   });
 });
