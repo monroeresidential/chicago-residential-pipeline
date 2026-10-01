@@ -1,11 +1,9 @@
 ---
-import "@fontsource/inter/400.css";
-import "@fontsource/inter/500.css";
-import "@fontsource/inter/600.css";
-import "@fontsource/newsreader/400.css";
-import "@fontsource/newsreader/500.css";
-import interUrl from "@fontsource/inter/files/inter-latin-400-normal.woff2?url";
-import newsreaderUrl from "@fontsource/newsreader/files/newsreader-latin-500-normal.woff2?url";
+import "@fontsource/public-sans/400.css";
+import "@fontsource/public-sans/600.css";
+import "@fontsource/public-sans/700.css";
+import publicSans400 from "@fontsource/public-sans/files/public-sans-latin-400-normal.woff2?url";
+import publicSans700 from "@fontsource/public-sans/files/public-sans-latin-700-normal.woff2?url";
 import "../styles/global.css";
 import Footer from "../components/Footer.astro";
 import Header from "../components/Header.astro";
@@ -41,17 +39,17 @@ const jsonLdText = jsonLd ? JSON.stringify(jsonLd).replace(/</g, "\\u003c") : nu
     {markdownPath && <link rel="alternate" type="text/markdown" href={markdownPath} />}
     <link rel="help" type="text/plain" href="/llms.txt" title="LLM-readable summary" />
     {preconnect.map((origin) => <link rel="preconnect" href={origin} crossorigin />)}
-    <meta name="theme-color" content="#00051B" />
+    <meta name="theme-color" content="#2F3437" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <link rel="preload" as="font" type="font/woff2" href={interUrl} crossorigin />
-    <link rel="preload" as="font" type="font/woff2" href={newsreaderUrl} crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href={publicSans400} crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href={publicSans700} crossorigin />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
-    <meta property="og:site_name" content="Chicago Residential Pipeline by Monroe Residential Partners" />
+    <meta property="og:site_name" content="Chicago Residential Pipeline by 3F Construction" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />

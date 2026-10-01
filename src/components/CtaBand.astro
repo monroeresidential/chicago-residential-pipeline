@@ -1,0 +1,20 @@
+---
+import { CONTACT_3F_URL, PHONE_3F } from "../lib/site-config";
+
+interface Props {
+  /** "band" = full-width footer band; "card" = compact block (map sidebar, project pages). */
+  variant?: "band" | "card";
+}
+const { variant = "band" } = Astro.props;
+---
+<section class:list={["cta-band", `cta-band--${variant}`]} aria-label="Work with 3F Construction">
+  <div class="cta-copy">
+    <p class="eyebrow">3F Construction</p>
+    <h2>Planning an office-to-residential conversion?</h2>
+    <p>3F Construction builds them — from preconstruction and budgeting through general contracting and delivery, right here in Chicago.</p>
+  </div>
+  <div class="cta-actions">
+    <a class="button" href={CONTACT_3F_URL}>Contact 3F</a>
+    <a class="button button--ghost" href={PHONE_3F.tel}>{PHONE_3F.display}</a>
+  </div>
+</section>

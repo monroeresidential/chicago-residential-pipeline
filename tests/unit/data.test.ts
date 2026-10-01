@@ -26,9 +26,11 @@ describe("data/projects.csv", () => {
     });
   });
 
-  it("marks the six LaSalle projects and three Monroe projects", () => {
+  it("marks the six LaSalle projects and the three projects built by 3F Construction", () => {
     expect(projects.filter((p) => p.program === "lasalle").map((p) => p.dpd_map_no)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(projects.filter((p) => p.monroe_url).map((p) => p.id)).toEqual(["116-122-w-illinois", "401-w-ontario", "620-n-lasalle"]);
+    const built = projects.filter((p) => p.built_by_3f_url);
+    expect(built.map((p) => p.id)).toEqual(["116-122-w-illinois", "223-w-erie", "401-w-ontario"]);
+    for (const p of built) expect(p.built_by_3f_url).toMatch(/^https:\/\/3fconstruction\.net\/project\/[a-z0-9-]+\/$/);
   });
 });
 
@@ -45,14 +47,14 @@ describe("620 N LaSalle", () => {
     const p = loadProjects().find((x) => x.id === "620-n-lasalle")!;
     expect(p).toMatchObject({ units: 90, status: "planning", confidence: "reported", program: "private" });
     expect(p.developer).toBe("Monroe Residential Partners");
-    expect(p.monroe_url).not.toBeNull();
+    expect(p.built_by_3f_url).toBeNull();
   });
 });
 
 describe("215 W Ohio", () => {
   it("shows only public facts: 52 units, Base 3, planning, no cost", () => {
     const p = loadProjects().find((x) => x.id === "215-w-ohio")!;
-    expect(p).toMatchObject({ name: "Bold Gallery Lofts", developer: "Base 3 Development", units: 52, status: "planning", confidence: "reported", tpc_musd: null, monroe_url: null });
+    expect(p).toMatchObject({ name: "Bold Gallery Lofts", developer: "Base 3 Development", units: 52, status: "planning", confidence: "reported", tpc_musd: null, built_by_3f_url: null });
     expect(p.sources).toEqual(["https://base3co.com/portfolio/215-w-ohio/"]);
   });
 });

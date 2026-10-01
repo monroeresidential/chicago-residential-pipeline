@@ -37,11 +37,11 @@ test("a project with missing fields shows em dashes, never null", async ({ page 
   await expect(page.locator("main")).not.toContainText("null");
 });
 
-test("flags and Monroe projects are called out", async ({ page }) => {
+test("flags and 3F-built projects are called out", async ({ page }) => {
   await page.goto("/projects/105-w-adams");
   await expect(page.locator(".callout--flag")).toContainText("Ownership lawsuit pending");
   await page.goto("/projects/401-w-ontario");
-  await expect(page.locator(".callout--monroe a")).toHaveAttribute("href", "https://monroeresidential.com/portfolio/birken-lofts");
+  await expect(page.locator(".callout--3f a")).toHaveAttribute("href", "https://3fconstruction.net/project/birken-lofts/");
 });
 
 test("JSON-LD is valid and escaped", async ({ page }) => {

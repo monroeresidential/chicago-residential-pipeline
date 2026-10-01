@@ -16,7 +16,7 @@ describe("parseProjectsCsv", () => {
     expect(p.tpc_musd).toBe(179);
     expect(p.public_support).toBe("TIF + LaSalle ($40M)");
     expect(p.flag).toBeNull();
-    expect(p.monroe_url).toBeNull();
+    expect(p.built_by_3f_url).toBeNull();
     expect(p.notes).toBeNull();
     expect(p.sources).toEqual(["https://a.example/one", "https://b.example/two"]);
   });

@@ -14,7 +14,7 @@ test("shows all 29 projects with totals", async ({ page }) => {
   await expect(stat(page, "tpc")).toHaveText("$1.84B");
   await expect(page.locator("#project-list li:not([hidden])")).toHaveCount(29);
   await expect(page.locator(".marker--reported")).toHaveCount(4);
-  await expect(page.locator(".marker--monroe")).toHaveCount(3);
+  await expect(page.locator(".marker--3f")).toHaveCount(3);
 });
 
 test("filtering by status updates markers, list, totals and URL", async ({ page }) => {
@@ -59,7 +59,7 @@ test("clicking a marker opens its popup and records it in the URL", async ({ pag
 
 test("clicking a list row selects the project instead of navigating", async ({ page }) => {
   await page.locator('a.project-row[data-id="401-w-ontario"]').click();
-  await expect(page.locator(".maplibregl-popup")).toContainText("A Monroe Residential project");
+  await expect(page.locator(".maplibregl-popup")).toContainText("Built by 3F Construction");
   await expect(page).toHaveURL(/\/\?project=401-w-ontario$/);
 });
 

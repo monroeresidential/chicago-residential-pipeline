@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Public, Monroe Residential–branded map of Chicago's downtown office-to-residential conversion pipeline, live at https://chicagopipeline.com (`www.` and the old `pipeline.monroeresidential.com` 301 to it via `src/worker.ts`). Astro 7 static site, MapLibre GL 6 map, deployed to Cloudflare Workers static assets. Design spec and implementation plan (including accepted deviations) live in `docs/superpowers/`.
+Public, 3F Construction–branded marketing map of Chicago's downtown office-to-residential conversion pipeline (Monroe Residential Partners appears only as a footer logo link), live at https://chicagopipeline.com (`www.` and the old `pipeline.monroeresidential.com` 301 to it via `src/worker.ts`). Astro 7 static site, MapLibre GL 6 map, deployed to Cloudflare Workers static assets. Design spec and implementation plan (including accepted deviations) live in `docs/superpowers/`.
 
 ## Commands
 
@@ -48,7 +48,7 @@ Enums (status order, labels, colors; programs) live in `schema.ts` and drive CSS
 ## Data rules
 
 - `status` ∈ completed | under_construction | permitted | approved | planning; `program` ∈ lasalle | private; `confidence` ∈ dpd | reported ("Reported — not on DPD map", hollow marker); `sources` are URLs separated by ` | ` (at least one); numbers are plain digits; empty cell = unknown, rendered as "—".
-- Reconciliation: the June 2026 DPD map value is shown and alternates go in `notes`, except figures confirmed directly by the developer (e.g. Birken Lofts 57 units). Projects with `monroe_url` get the Monroe badge.
+- Reconciliation: the June 2026 DPD map value is shown and alternates go in `notes`, except figures confirmed directly by the developer (e.g. Birken Lofts 57 units). Projects with `built_by_3f_url` (3F's project page) get the "Built by 3F" badge/orange marker ring. Brand constants (3F links with UTM tags, phone, Monroe footer link) live in `src/lib/site-config.ts`; palette tokens (`--brand`, `--accent`, `--charcoal`) in `src/styles/global.css` (`tests/unit/brand.test.ts` enforces AA contrast).
 - `tests/unit/data.test.ts` pins the real dataset (count, totals, per-stage counts, Monroe ids) and `tests/e2e/*` assert marker counts and totals — update them when rows change.
 - The GitHub repo is **public**. `data/raw/` (original research CSV, DPD map image), `inbox/` (project PDFs to process; see `inbox/README.md`) and `private/` (full extractions of confidential documents: `deals.csv`, `rent-comps.csv`, `deals/<id>/{source.pdf,extract.md,extract.json}`; see `private/README.md`) are git-ignored and must stay local; `tests/unit/private-guard.test.ts` enforces it. Only already-public, user-approved facts go into `data/projects.csv` — never price, budget, rents or returns from a deck.
 

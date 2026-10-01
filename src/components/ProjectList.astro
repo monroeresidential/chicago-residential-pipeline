@@ -21,7 +21,7 @@ const { projects } = Astro.props;
           <StatusChip status={p.status} reported={p.confidence === "reported"} />
           <span>{formatUnits(p.units)} units · {formatMoney(p.tpc_musd)}</span>
         </span>
-        {p.monroe_url && <span class="row-monroe">Monroe project</span>}
+        {p.built_by_3f_url && <span class="row-3f">Built by 3F</span>}
       </a>
     </li>
   ))}

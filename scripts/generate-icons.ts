@@ -9,8 +9,8 @@ function render(source: string, size: number): Buffer {
   return new Resvg(source, { fitTo: { mode: "width", value: size }, font: { loadSystemFonts: true } }).render().asPng();
 }
 
-// Home-screen icons get the brand navy behind the glyph (iOS fills transparency with black).
-const onNavy = svg.replace(/<svg([^>]*)>/, '<svg$1><rect width="64" height="64" fill="#00051B"/>');
+// Home-screen icons: full-bleed square (iOS/Android apply their own corner mask).
+const square = svg.replace(/rx="\d+"/, 'rx="0"');
 
 // ICO container holding PNG images (supported by every current browser and by Google).
 function ico(pngs: { size: number; data: Buffer }[]): Buffer {
@@ -34,7 +34,7 @@ function ico(pngs: { size: number; data: Buffer }[]): Buffer {
 
 writeFileSync("public/favicon-32x32.png", render(svg, 32));
 writeFileSync("public/favicon.ico", ico([16, 32, 48].map((size) => ({ size, data: render(svg, size) }))));
-writeFileSync("public/apple-touch-icon.png", render(onNavy, 180));
-writeFileSync("public/icon-192.png", render(onNavy, 192));
-writeFileSync("public/icon-512.png", render(onNavy, 512));
+writeFileSync("public/apple-touch-icon.png", render(square, 180));
+writeFileSync("public/icon-192.png", render(square, 192));
+writeFileSync("public/icon-512.png", render(square, 512));
 console.log("Wrote favicon.ico, favicon-32x32.png, apple-touch-icon.png, icon-192.png, icon-512.png");

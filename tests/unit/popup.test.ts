@@ -30,9 +30,11 @@ describe("popupHtml", () => {
     expect(html).toContain("&lt;img src=x onerror=alert(1)&gt; &amp; Crain&#39;s");
   });
 
-  it("shows flags and the Monroe badge", () => {
-    const html = popupHtml(makeProject({ flag: "Ownership lawsuit pending", monroe_url: "https://monroeresidential.com/portfolio/x" }));
+  it("shows flags and the Built by 3F badge linking to 3F's project page", () => {
+    const html = popupHtml(makeProject({ flag: "Ownership lawsuit pending", built_by_3f_url: "https://3fconstruction.net/project/birken-lofts/" }));
     expect(html).toContain("⚠ Ownership lawsuit pending");
-    expect(html).toContain("A Monroe Residential project");
+    expect(html).toContain('<a class="popup-3f" href="https://3fconstruction.net/project/birken-lofts/"');
+    expect(html).toContain("Built by 3F Construction");
+    expect(html).not.toContain("Monroe Residential");
   });
 });

@@ -25,7 +25,7 @@ export const BRAND_FLAVOR: Flavor = {
   highway: "#ffffff",
   roads_label_minor: "#7a838d",
   roads_label_major: "#5b6570",
-  subplace_label: "#33709b",
-  city_label: "#00051b",
+  subplace_label: "#5b6570",
+  city_label: "#2f3437",
   ocean_label: "#6f8fa8",
 };

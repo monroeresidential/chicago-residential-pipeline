@@ -31,7 +31,7 @@ test("home page is branded and search-friendly", async ({ page }) => {
   await expect(page.locator('meta[property="og:image:type"]')).toHaveAttribute("content", "image/jpeg");
   await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute("content", "en_US");
   await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute("content", /Chicago Residential Pipeline/);
-  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Chicago Residential Pipeline by Monroe Residential Partners");
+  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Chicago Residential Pipeline by 3F Construction");
   const description = await page.locator('meta[name="description"]').getAttribute("content");
   expect(description).toMatch(/29 downtown Chicago office-to-residential conversions/);
   expect(description!.length).toBeLessThanOrEqual(160);

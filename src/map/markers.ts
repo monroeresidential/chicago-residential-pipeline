@@ -18,7 +18,7 @@ export function createMarkerElement(p: Project): HTMLButtonElement {
   el.type = "button";
   el.className = "marker";
   if (p.confidence === "reported") el.classList.add("marker--reported");
-  if (p.monroe_url) el.classList.add("marker--monroe");
+  if (p.built_by_3f_url) el.classList.add("marker--3f");
   el.dataset.id = p.id;
   el.dataset.status = p.status;
   const size = `${markerSize(p.units)}px`;

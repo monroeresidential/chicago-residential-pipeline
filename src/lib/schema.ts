@@ -22,7 +22,7 @@ export const ProjectSchema = z.object({
   status_note: z.string().min(1),
   flag: z.string().min(1).nullable(),
   confidence: z.enum(["dpd", "reported"]),
-  monroe_url: z.url().nullable(),
+  built_by_3f_url: z.url().nullable(),
   lat: z.number().min(DOWNTOWN_BBOX.minLat).max(DOWNTOWN_BBOX.maxLat),
   lng: z.number().min(DOWNTOWN_BBOX.minLng).max(DOWNTOWN_BBOX.maxLng),
   sources: z.array(z.url()).min(1),

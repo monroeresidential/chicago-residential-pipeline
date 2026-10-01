@@ -16,7 +16,7 @@ export function makeProject(over: Partial<Project> = {}): Project {
     status_note: "Approved; in development",
     flag: null,
     confidence: "dpd",
-    monroe_url: null,
+    built_by_3f_url: null,
     lat: 41.8805,
     lng: -87.6311,
     sources: ["https://www.chicago.gov/"],
@@ -26,7 +26,7 @@ export function makeProject(over: Partial<Project> = {}): Project {
 }
 
 export const CSV_HEADER =
-  "id,dpd_map_no,name,address,developer,units,affordable_units,tpc_musd,program,public_support,status,status_note,flag,confidence,monroe_url,lat,lng,sources,notes";
+  "id,dpd_map_no,name,address,developer,units,affordable_units,tpc_musd,program,public_support,status,status_note,flag,confidence,built_by_3f_url,lat,lng,sources,notes";
 
 export const GOOD_ROW =
   '111-w-monroe,1,Harris Bank building,111 W. Monroe St,Prime/Capri Interests,345,104,179,lasalle,"TIF + LaSalle ($40M)",approved,Approved; in development,,dpd,,41.8805,-87.6311,https://a.example/one | https://b.example/two,';

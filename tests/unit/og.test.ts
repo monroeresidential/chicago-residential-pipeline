@@ -21,7 +21,8 @@ describe("OG content", () => {
     expect(c.title).toBe("Chicago Residential Pipeline");
     expect(c.subtitle).toBe("2 downtown office-to-residential conversions · 150 units · $1.5B");
     expect(c.background).toMatch(/birken-lofts\.jpg$/);
-    expect(c.caption).toBe("Birken Lofts · 401 W. Ontario · A Monroe Residential project");
+    expect(c.caption).toBe("Birken Lofts · 401 W. Ontario · Built by 3F Construction");
+    expect(c.eyebrow).toBe("3F Construction");
   });
 });
 

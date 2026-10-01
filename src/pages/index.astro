@@ -1,4 +1,5 @@
 ---
+import CtaBand from "../components/CtaBand.astro";
 import Filters from "../components/Filters.astro";
 import MapView from "../components/MapView.astro";
 import ProjectList from "../components/ProjectList.astro";
@@ -17,7 +18,7 @@ const projects = loadProjects();
 const t = totals(projects);
 // Embedded so the map never waits on (or fails on) a second request. Same shape as /data/projects.geojson.
 const projectsJson = JSON.stringify(toFeatureCollection(projects, DATA_AS_OF)).replace(/</g, "\\u003c");
-const description = `Map of ${t.count} downtown Chicago office-to-residential conversions: ${formatUnits(t.units)} units, ${formatMoney(t.tpcMusd)}, tracked from planning to completion. By Monroe Residential.`;
+const description = `Map of ${t.count} downtown Chicago office-to-residential conversions: ${formatUnits(t.units)} units, ${formatMoney(t.tpcMusd)}, tracked from planning to completion. By 3F Construction.`;
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "Dataset",
@@ -26,7 +27,7 @@ const jsonLd = {
   url: Astro.site!.href,
   dateModified: DATA_AS_OF,
   spatialCoverage: { "@type": "Place", name: "Downtown Chicago, IL" },
-  creator: { "@type": "Organization", name: "Monroe Residential Partners", url: "https://monroeresidential.com" },
+  creator: { "@type": "Organization", name: "3F Construction", url: "https://3fconstruction.net" },
   distribution: [
     { "@type": "DataDownload", encodingFormat: "application/geo+json", contentUrl: new URL("/data/projects.geojson", Astro.site).href },
     { "@type": "DataDownload", encodingFormat: "text/csv", contentUrl: new URL("/data/projects.csv", Astro.site).href },
@@ -47,10 +48,7 @@ const jsonLd = {
         <StatTiles totals={t} />
         <Filters counts={countByStatus(projects)} />
         <ProjectList projects={sortProjects(projects, "units")} />
-        <div class="sidebar-cta">
-          <p><strong>Have a project in mind?</strong>We live to talk about the next great project.</p>
-          <a class="button" href="tel:+13122964855">(312) 296-4855</a>
-        </div>
+        <CtaBand variant="card" />
         <p class="as-of">Data as of {formatDate(DATA_AS_OF)} · <a href="/about">Sources &amp; methodology</a> · <a href="/about#suggest">Suggest a correction</a></p>
       </div>
     </aside>
