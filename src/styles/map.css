@@ -7,7 +7,7 @@
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 0 0 24px; background: var(--line); border: 1px solid var(--line); }
 .stats div { background: var(--bg); padding: 12px; }
 .stats dt { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-.stats dd { margin: 4px 0 0; font: 600 26px/1.1 var(--font-display); color: var(--charcoal); font-variant-numeric: tabular-nums; }
+.stats dd { margin: 4px 0 0; font: 700 24px/1.1 var(--font-sans); color: var(--charcoal); font-variant-numeric: tabular-nums; }
 
 .filters fieldset { border: 0; padding: 0; margin: 0 0 16px; }
 .filters legend { font: 600 11px/1 var(--font-sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }

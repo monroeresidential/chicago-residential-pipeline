@@ -19,19 +19,19 @@ test("icons and manifest exist and are linked", async ({ page, request }) => {
     expect((await request.get(path)).status(), path).toBe(200);
   }
   const manifest = await (await request.get("/site.webmanifest")).json();
-  expect(manifest.name).toBe("Chicago Residential Pipeline");
+  expect(manifest.name).toBe("Chicago Pipeline");
   expect(manifest.icons.map((i: { sizes: string }) => i.sizes)).toEqual(["192x192", "512x512"]);
 });
 
 test("home page is branded and search-friendly", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveTitle(/^Chicago Residential Pipeline \| /);
+  await expect(page).toHaveTitle(/^Chicago Pipeline \| /);
   expect((await page.title()).length).toBeLessThanOrEqual(60);
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", "https://chicagopipeline.com/og/site.jpg");
   await expect(page.locator('meta[property="og:image:type"]')).toHaveAttribute("content", "image/jpeg");
   await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute("content", "en_US");
-  await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute("content", /Chicago Residential Pipeline/);
-  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Chicago Residential Pipeline by 3F Construction");
+  await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute("content", /Chicago Pipeline/);
+  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Chicago Pipeline by 3F Construction");
   const description = await page.locator('meta[name="description"]').getAttribute("content");
   expect(description).toMatch(/29 downtown Chicago office-to-residential conversions/);
   expect(description!.length).toBeLessThanOrEqual(160);
@@ -41,7 +41,7 @@ test("home page is branded and search-friendly", async ({ page }) => {
 
 test("project pages carry the site name in their titles", async ({ page }) => {
   await page.goto("/projects/401-w-ontario");
-  await expect(page).toHaveTitle("Birken Lofts · Chicago Residential Pipeline");
+  await expect(page).toHaveTitle("Birken Lofts · Chicago Pipeline");
 });
 
 test("sitemap lists project pages and robots.txt points to it", async ({ request }) => {

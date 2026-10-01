@@ -22,7 +22,7 @@ const description = `Map of ${t.count} downtown Chicago office-to-residential co
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "Dataset",
-  name: "Chicago Residential Pipeline: downtown office-to-residential conversions",
+  name: "Chicago Pipeline: downtown office-to-residential conversions",
   description,
   url: Astro.site!.href,
   dateModified: DATA_AS_OF,
@@ -35,7 +35,7 @@ const jsonLd = {
   ],
 };
 ---
-<Base title="Chicago Residential Pipeline | Office Conversions Map" description={description} jsonLd={jsonLd} markdownPath="/llms.txt" preconnect={[new URL(DEFAULT_PMTILES_URL).origin]} fullscreen>
+<Base title="Chicago Pipeline | Downtown Office-to-Residential Map" description={description} jsonLd={jsonLd} markdownPath="/llms.txt" preconnect={[new URL(DEFAULT_PMTILES_URL).origin]} fullscreen>
   <div class="app-shell">
     <aside id="sidebar" class="sidebar" data-state="collapsed" aria-label="Projects">
       <button type="button" class="sheet-handle" aria-expanded="false" aria-controls="sidebar-body">

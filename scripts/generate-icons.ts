@@ -1,16 +1,15 @@
-// One-time: render public/favicon.svg into the raster icons Google, iOS and Android need.
+// Render the raster icons Google, iOS and Android need from the Chicago Pipeline pin mark.
 // Usage: pnpm exec tsx scripts/generate-icons.ts   (outputs are committed)
+// public/favicon.svg (vector, light/dark aware) is maintained by hand from src/assets/brand/favicon-source.svg.
 import { readFileSync, writeFileSync } from "node:fs";
 import { Resvg } from "@resvg/resvg-js";
 
-const svg = readFileSync("public/favicon.svg", "utf8");
+// Light ground behind the mark so the ink outline stays visible on dark tabs and home screens.
+const icon = readFileSync("src/assets/brand/icon.svg", "utf8");
 
 function render(source: string, size: number): Buffer {
-  return new Resvg(source, { fitTo: { mode: "width", value: size }, font: { loadSystemFonts: true } }).render().asPng();
+  return new Resvg(source, { fitTo: { mode: "width", value: size } }).render().asPng();
 }
-
-// Home-screen icons: full-bleed square (iOS/Android apply their own corner mask).
-const square = svg.replace(/rx="\d+"/, 'rx="0"');
 
 // ICO container holding PNG images (supported by every current browser and by Google).
 function ico(pngs: { size: number; data: Buffer }[]): Buffer {
@@ -32,9 +31,9 @@ function ico(pngs: { size: number; data: Buffer }[]): Buffer {
   return Buffer.concat([header, ...pngs.map((p) => p.data)]);
 }
 
-writeFileSync("public/favicon-32x32.png", render(svg, 32));
-writeFileSync("public/favicon.ico", ico([16, 32, 48].map((size) => ({ size, data: render(svg, size) }))));
-writeFileSync("public/apple-touch-icon.png", render(square, 180));
-writeFileSync("public/icon-192.png", render(square, 192));
-writeFileSync("public/icon-512.png", render(square, 512));
+writeFileSync("public/favicon-32x32.png", render(icon, 32));
+writeFileSync("public/favicon.ico", ico([16, 32, 48].map((size) => ({ size, data: render(icon, size) }))));
+writeFileSync("public/apple-touch-icon.png", render(icon, 180));
+writeFileSync("public/icon-192.png", render(icon, 192));
+writeFileSync("public/icon-512.png", render(icon, 512));
 console.log("Wrote favicon.ico, favicon-32x32.png, apple-touch-icon.png, icon-192.png, icon-512.png");

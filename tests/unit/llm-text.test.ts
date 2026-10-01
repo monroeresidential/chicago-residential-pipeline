@@ -40,7 +40,7 @@ describe("llmsTxt", () => {
   const txt = llmsTxt(projects, "2026-09-28", SITE, FORM);
 
   it("starts with the llms.txt title and summary", () => {
-    expect(txt.startsWith("# Chicago Residential Pipeline\n\n> ")).toBe(true);
+    expect(txt.startsWith("# Chicago Pipeline\n\n> ")).toBe(true);
     expect(txt).toContain(`${projects.length} projects`);
     expect(txt).toContain("Data as of 2026-09-28");
   });

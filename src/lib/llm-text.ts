@@ -4,7 +4,7 @@ import { METHODOLOGY } from "./methodology";
 import { PROGRAM_LABELS, STATUS_LABELS, STATUSES, type Project } from "./schema";
 import { countByStatus, totals } from "./stats";
 
-const TITLE = "Chicago Residential Pipeline";
+const TITLE = "Chicago Pipeline";
 
 export function mdEscape(s: string): string {
   return s.replace(/[\\`*_[\]|<>]/g, (c) => `\\${c}`);
