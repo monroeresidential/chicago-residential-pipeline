@@ -111,6 +111,15 @@ describe("normalizeRecord", () => {
     expect(again.notes).toBe(record.notes);
   });
 
+  it("treats unit spellings as the same unit, and a different unit number as a change", () => {
+    const h = (address: string) => contentHash(normalizeRecord(zbaRecord({ address })).record);
+    expect(h("3642 W Oakdale Ave # 300")).toBe(h("3642 W Oakdale Ave #300"));
+    expect(h("3642 W Oakdale Ave, Ste. 300")).toBe(h("3642 W Oakdale Ave Suite 300"));
+    expect(h("3642 W Oakdale Ave 2nd Floor")).toBe(h("3642 W Oakdale Ave Floor 2"));
+    expect(h("3642 W Oakdale Ave Suite 301")).not.toBe(h("3642 W Oakdale Ave Suite 300"));
+    expect(normalizeRecord(zbaRecord({ address: "3642 W Oakdale Ave #300" })).record.notes).toBe("address unit: 3642 W OAKDALE AVE UNIT 300");
+  });
+
   it("ignores the order of secondary addresses", () => {
     const a = normalizeRecord(zoningRecord({ additional_addresses: ["79 W Monroe St", "105 W Adams St"] })).record;
     const b = normalizeRecord(zoningRecord({ additional_addresses: ["105 W Adams St", "79 W Monroe St"] })).record;
