@@ -14,7 +14,7 @@ export const testConfig: Config = {
 export async function makeApp() {
   const db = getTestDb();
   await resetDb(db);
-  const app = createApp({ db, config: testConfig });
+  const app = createApp({ db, config: testConfig, log: () => {} });
   const grok = (await issueToken(db, testConfig.JWT_SECRET, "grok", "submitter")).token;
   const drew = (await issueToken(db, testConfig.JWT_SECRET, "drew", "editor")).token;
   return { app, db, grok, drew };
