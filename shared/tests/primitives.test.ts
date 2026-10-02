@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   blankToNull, extractCitedKeys, formatPin, looseOrgKey, matterKeyOf, normalizeCommunityArea, normalizeDpdAppNo,
-  normalizePin, normalizeRecordNumber, normalizeZbaCaseNo, normalizeZip, normalizeZoning, orgNameKey,
+  normalizeElmsMatterId, normalizePin, normalizeRecordNumber, normalizeZbaCaseNo, normalizeZip, normalizeZoning, orgNameKey,
 } from "../normalize/primitives";
 
 describe("normalizePin", () => {
@@ -63,6 +63,14 @@ describe("organization keys", () => {
   });
 });
 
+describe("eLMS matter ids", () => {
+  const id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
+  it.each([[id, id], [id.toUpperCase(), id], [`{${id}}`, id], [id.replace(/-/g, ""), id]])(
+    "%s → canonical", (raw, v) => expect(normalizeElmsMatterId(raw)).toEqual({ ok: true, value: v }),
+  );
+  it("rejects values that are not GUIDs", () => expect(normalizeElmsMatterId("not-a-guid").ok).toBe(false));
+});
+
 describe("ZBA case numbers", () => {
   it.each([["420-24-S", "420-24-S"], ["420 - 24 - s", "420-24-S"], [" 420-24-S ", "420-24-S"]])(
     "%s → %s", (raw, v) => expect(normalizeZbaCaseNo(raw)).toBe(v),
@@ -73,6 +81,9 @@ describe("community area, ZIP, zoning, blanks", () => {
   it.each([["21", 21], [21, 21], ["21 Avondale", 21], ["Avondale", 21], ["lake view", 6], ["Lakeview", 6], ["O'Hare", 76]])(
     "community area %s → %s", (raw, n) => expect(normalizeCommunityArea(raw)).toEqual({ ok: true, value: n }),
   );
+  it.each(["32.5", "32 Loop, 33 Near South Side", "32 Avondale"])("rejects conflicting community area %j", (raw) =>
+    expect(normalizeCommunityArea(raw).ok).toBe(false));
+
   it("rejects unknown areas and out-of-range numbers", () => {
     expect(normalizeCommunityArea("Gotham").ok).toBe(false);
     expect(normalizeCommunityArea("78").ok).toBe(false);

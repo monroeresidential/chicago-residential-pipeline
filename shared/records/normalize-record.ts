@@ -1,6 +1,6 @@
 import { addressKey, normalizeAddress, type CanonicalAddress } from "../normalize/address";
 import {
-  blankToNull, extractCitedKeys, matterKeyOf, normalizeCommunityArea, normalizeDpdAppNo, normalizePin,
+  blankToNull, extractCitedKeys, matterKeyOf, normalizeCommunityArea, normalizeDpdAppNo, normalizeElmsMatterId, normalizePin,
   normalizeRecordNumber, normalizeZbaCaseNo, normalizeZoning, orgNameKey,
 } from "../normalize/primitives";
 import type { Issue, NormalizeResult, NormalizedRecord, OrgRole, RecordIdentifier, RecordOrganization, WireRecord } from "./types";
@@ -132,7 +132,11 @@ export function normalizeRecord(rec: WireRecord): NormalizeResult {
       sourceKey = rn.ok ? matterKeyOf(rn.value) : matterKeyOf(sourceKey.toUpperCase());
       c.id("matter_key", sourceKey, "self");
       const guid = s(d.matter_id);
-      if (guid) c.id("elms_matter_id", guid.toLowerCase(), "self");
+      if (guid) {
+        const g = normalizeElmsMatterId(guid);
+        if (g.ok) c.id("elms_matter_id", g.value, "self");
+        else c.issues.push({ field: "matter_id", raw: guid, message: g.message, blocking: true });
+      }
       c.dpd(s(d.dpd_app_no), "self");
       c.address("address", s(d.address), zip);
       for (const extra of (d.additional_addresses as string[] | null) ?? []) c.address("additional_addresses", blankToNull(extra), zip);

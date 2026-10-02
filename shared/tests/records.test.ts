@@ -131,6 +131,12 @@ describe("normalizeRecord", () => {
     expect(contentHash(nulls)).toBe(contentHash(none));
   });
 
+  it("blocks an eLMS matter id that is not a GUID", () => {
+    const { record, issues } = normalizeRecord(zoningRecord({ matter_id: "not-a-guid" }));
+    expect(record.identifiers.some((i) => i.type === "elms_matter_id")).toBe(false);
+    expect(issues).toEqual([expect.objectContaining({ field: "matter_id", blocking: true })]);
+  });
+
   it("uses one canonical ZBA case number", () => {
     const r = normalizeRecord({ ...zbaRecord({ case_no: "420 - 24 - S" }), source_key: "420-24-S" }).record;
     expect(r.source_key).toBe("420-24-S");
