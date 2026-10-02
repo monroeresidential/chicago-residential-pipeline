@@ -45,7 +45,7 @@ function expandRange(a: string, b: string): number {
 export type AddressResult = Result<CanonicalAddress> & { unit?: string };
 
 const UNIT_LABELS: Record<string, string> = {
-  "#": "UNIT", UNIT: "UNIT", STE: "SUITE", SUITE: "SUITE", APT: "APT", RM: "ROOM", ROOM: "ROOM", FL: "FLOOR", FLOOR: "FLOOR",
+  "#": "UNIT", UNIT: "UNIT", STE: "SUITE", SUITE: "SUITE", APT: "APT", APARTMENT: "APT", RM: "ROOM", ROOM: "ROOM", FL: "FLOOR", FLOOR: "FLOOR",
 };
 
 /** One spelling per unit: "#300", "# 300" → "UNIT 300"; "STE 300" → "SUITE 300"; "2ND FLOOR" → "FLOOR 2". */
@@ -53,10 +53,11 @@ function canonicalUnit(tail: string): string {
   const t = tail.replace(/\s+/g, " ").trim();
   const floor = t.match(/^(\d+)(?:ST|ND|RD|TH) (?:FL|FLOOR)\b ?(.*)$/);
   if (floor) return `FLOOR ${floor[1]}${floor[2] ? ` ${floor[2]}` : ""}`;
-  const m = t.match(/^(#|(?:UNIT|STE|SUITE|APT|FL|FLOOR|RM|ROOM)\b) ?(.*)$/);
+  const m = t.match(/^(#|(?:UNIT|STE|SUITE|APARTMENT|APT|FL|FLOOR|RM|ROOM)\b) ?(.*)$/);
   if (!m) return t;
   const label = UNIT_LABELS[m[1]!]!;
-  return m[2] ? `${label} ${m[2]}` : label;
+  const id = m[2]!.replace(/^#\s*/, ""); // "APT #3" = "APT 3"
+  return id ? `${label} ${id}` : label;
 }
 
 export function normalizeAddress(raw: string, zipRaw?: string | null): AddressResult {
@@ -67,7 +68,7 @@ export function normalizeAddress(raw: string, zipRaw?: string | null): AddressRe
     s = s.replace(re, (tail) => { units.push(canonicalUnit(tail)); return ""; }).trim();
   };
   cut(/\s\d+(?:ST|ND|RD|TH)\s+(?:FL|FLOOR)\b.*$/);
-  cut(/\s(?:#|(?:UNIT|STE|SUITE|APT|FL|FLOOR|RM|ROOM)\b)\s*\S*.*$/);
+  cut(/\s(?:#|(?:UNIT|STE|SUITE|APARTMENT|APT|FL|FLOOR|RM|ROOM)\b)\s*\S*.*$/);
   cut(/#\S*$/);
   const unit = units.length ? units.reverse().join(" ") : undefined;
 

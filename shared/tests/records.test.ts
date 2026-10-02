@@ -117,6 +117,10 @@ describe("normalizeRecord", () => {
     expect(h("3642 W Oakdale Ave, Ste. 300")).toBe(h("3642 W Oakdale Ave Suite 300"));
     expect(h("3642 W Oakdale Ave 2nd Floor")).toBe(h("3642 W Oakdale Ave Floor 2"));
     expect(h("3642 W Oakdale Ave Suite 301")).not.toBe(h("3642 W Oakdale Ave Suite 300"));
+    expect(h("3642 W Oakdale Ave Apartment 3")).toBe(h("3642 W Oakdale Ave Apt 3"));
+    expect(h("3642 W Oakdale Ave Apt #3")).toBe(h("3642 W Oakdale Ave Apt 3"));
+    expect(h("3642 W Oakdale Ave Suite #300")).toBe(h("3642 W Oakdale Ave Suite 300"));
+    expect(normalizeRecord(zbaRecord({ address: "3642 W Oakdale Ave Apartment 3" })).issues).toEqual([]);
     expect(normalizeRecord(zbaRecord({ address: "3642 W Oakdale Ave #300" })).record.notes).toBe("address unit: 3642 W OAKDALE AVE UNIT 300");
   });
 
