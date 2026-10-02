@@ -23,7 +23,8 @@ export function formatPin(pin: string): string {
 
 /** DPD application number → its digits (APP23020T1, 23020T1, "app #23020" → 23020). */
 export function normalizeDpdAppNo(raw: string): Result<string> {
-  const m = raw.toUpperCase().replace(/\s+/g, "").match(/^(?:APP)?#?(\d{4,})/);
+  // The whole value must be one application number: APP23020T1, 23020T1, "app #23020". Anything else is flagged.
+  const m = raw.toUpperCase().replace(/\s+/g, "").match(/^(?:APP)?#?(\d{4,})(?:T\d+)?$/);
   return m ? ok(m[1]!) : fail(`DPD app # "${raw.trim()}" has no number`);
 }
 
@@ -48,8 +49,9 @@ export function extractCitedKeys(text: string): { dpd_app_no: string[]; record_n
 
 /** Comparison key for organization and person names. */
 export function orgNameKey(raw: string): string | null {
-  let s = raw.toUpperCase().replace(/&/g, " AND ").replace(/[.,'"`’]/g, "");
-  s = s.replace(/[^A-Z0-9 ]+/g, " ").replace(/\s+/g, " ");
+  // Accents fold to their base letter (Café = Cafe\u0301 = CAFE); other letters and digits are kept.
+  let s = raw.normalize("NFKD").replace(/\p{M}/gu, "").toUpperCase().replace(/&/g, " AND ").replace(/[.,'"`’]/g, "");
+  s = s.replace(/[^\p{L}\p{N} ]+/gu, " ").replace(/\s+/g, " ");
   s = s.replace(/\bL L C\b/g, "LLC").replace(/\bI N C\b/g, "INC").replace(/\s+/g, " ").trim();
   return s === "" ? null : s;
 }
@@ -76,6 +78,11 @@ export function normalizeCommunityArea(raw: string | number): Result<number> {
   }
   const hit = AREA_BY_NAME.get(compactName(s));
   return hit ? ok(hit) : fail(`unknown community area "${s}"`);
+}
+
+/** ZBA case number in one spelling: "420 - 24 - s" → "420-24-S". */
+export function normalizeZbaCaseNo(raw: string): string {
+  return raw.toUpperCase().replace(/\s+/g, "").replace(/[\u2010-\u2015\u2212]/g, "-");
 }
 
 export function normalizeZip(raw: string): Result<string> {

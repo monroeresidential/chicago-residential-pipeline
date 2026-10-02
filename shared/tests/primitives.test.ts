@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   blankToNull, extractCitedKeys, formatPin, looseOrgKey, matterKeyOf, normalizeCommunityArea, normalizeDpdAppNo,
-  normalizePin, normalizeRecordNumber, normalizeZip, normalizeZoning, orgNameKey,
+  normalizePin, normalizeRecordNumber, normalizeZbaCaseNo, normalizeZip, normalizeZoning, orgNameKey,
 } from "../normalize/primitives";
 
 describe("normalizePin", () => {
@@ -21,6 +21,7 @@ describe("identifiers", () => {
     "DPD app # %s → %s", (raw, v) => expect(normalizeDpdAppNo(raw)).toEqual({ ok: true, value: v }),
   );
   it("rejects a DPD app # without digits", () => expect(normalizeDpdAppNo("pending").ok).toBe(false));
+  it("rejects a DPD app # with unexplained extra content", () => expect(normalizeDpdAppNo("23020 / 23021").ok).toBe(false));
 
   it.each([["o2026-0025202", "O2026-0025202"], ["SO2026-0023894", "SO2026-0023894"], [" O2026 -0025202", "O2026-0025202"]])(
     "record number %s → %s", (raw, v) => expect(normalizeRecordNumber(raw)).toEqual({ ok: true, value: v }),
@@ -48,6 +49,9 @@ describe("organization keys", () => {
     ["Golub & Co.", "GOLUB AND CO"],
     ["Acme, Inc.", "ACME INC"],
     ["Example L  L  C", "EXAMPLE LLC"],
+    ["Café LLC", "CAFE LLC"],
+    ["Cafe\u0301 LLC", "CAFE LLC"],
+    ["Caf LLC", "CAF LLC"],
   ])("%s → %s", (raw, key) => expect(orgNameKey(raw)).toBe(key));
 
   it("returns null for punctuation-only names", () => expect(orgNameKey(" ., ")).toBeNull());
@@ -55,6 +59,12 @@ describe("organization keys", () => {
     expect(looseOrgKey("XIMENA CASTRO ESQ")).toBe("XIMENA CASTRO");
     expect(looseOrgKey("4645 NORTH CLARK LLC")).toBe("4645 NORTH CLARK");
   });
+});
+
+describe("ZBA case numbers", () => {
+  it.each([["420-24-S", "420-24-S"], ["420 - 24 - s", "420-24-S"], [" 420-24-S ", "420-24-S"]])(
+    "%s → %s", (raw, v) => expect(normalizeZbaCaseNo(raw)).toBe(v),
+  );
 });
 
 describe("community area, ZIP, zoning, blanks", () => {

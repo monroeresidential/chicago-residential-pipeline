@@ -45,7 +45,7 @@ function expandRange(a: string, b: string): number {
 export type AddressResult = Result<CanonicalAddress> & { unit?: string };
 
 export function normalizeAddress(raw: string, zipRaw?: string | null): AddressResult {
-  let s = raw.toUpperCase().replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
+  let s = raw.toUpperCase().replace(/[\u2010-\u2015\u2212]/g, "-").replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
   // Unit/suite/floor tails are not part of the canonical address; they are returned so the caller can keep them in notes.
   const units: string[] = [];
   const cut = (re: RegExp) => {

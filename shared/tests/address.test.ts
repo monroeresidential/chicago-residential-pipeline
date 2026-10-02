@@ -20,6 +20,8 @@ describe("normalizeAddress", () => {
   it.each([
     ["111-123 W. Monroe Street", "111-123 W MONROE ST"],
     ["111 - 123 W MONROE ST", "111-123 W MONROE ST"],
+    ["111–123 W. Monroe Street", "111-123 W MONROE ST"],
+    ["111—123 W. Monroe Street", "111-123 W MONROE ST"],
     ["111 TO 123 West Monroe St.", "111-123 W MONROE ST"],
     ["1601-15 N. Clark St", "1601-1615 N CLARK ST"],
     ["208 S. LaSalle St", "208 S LA SALLE ST"],

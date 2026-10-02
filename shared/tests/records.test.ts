@@ -106,7 +106,7 @@ describe("normalizeRecord", () => {
 
   it("keeps a removed unit designator in notes", () => {
     const { record } = normalizeRecord(zbaRecord({ address: "3642 W. Oakdale Avenue, Suite 300", notes: "OCR checked" }));
-    expect(record.notes).toBe("OCR checked; address unit: SUITE 300");
+    expect(record.notes).toBe("OCR checked; address unit: 3642 W OAKDALE AVE SUITE 300");
     const again = normalizeRecord(denormalizeRecord(record)).record;
     expect(again.notes).toBe(record.notes);
   });
@@ -116,6 +116,25 @@ describe("normalizeRecord", () => {
     const b = normalizeRecord(zoningRecord({ additional_addresses: ["105 W Adams St", "79 W Monroe St"] })).record;
     expect(contentHash(b)).toBe(contentHash(a));
     expect(diffRecords(a, b)).toEqual({});
+  });
+
+  it("ignores secondary-address order even when they carry units", () => {
+    const a = normalizeRecord(zoningRecord({ additional_addresses: ["79 W Monroe St Suite 100", "105 W Adams St Suite 200"] })).record;
+    const b = normalizeRecord(zoningRecord({ additional_addresses: ["105 W Adams St Suite 200", "79 W Monroe St Suite 100"] })).record;
+    expect(contentHash(b)).toBe(contentHash(a));
+    expect(diffRecords(a, b)).toEqual({});
+  });
+
+  it("treats all-null unit counts as no unit detail", () => {
+    const none = normalizeRecord(permitRecord({ units: null })).record;
+    const nulls = normalizeRecord(permitRecord({ units: { total: null, dwelling: null, efficiency: null, affordable: null } })).record;
+    expect(contentHash(nulls)).toBe(contentHash(none));
+  });
+
+  it("uses one canonical ZBA case number", () => {
+    const r = normalizeRecord({ ...zbaRecord({ case_no: "420 - 24 - S" }), source_key: "420-24-S" }).record;
+    expect(r.source_key).toBe("420-24-S");
+    expect(r.identifiers).toEqual([{ type: "zba_case_no", value: "420-24-S", relation: "self" }]);
   });
 
   it("canonicalizes nested units and hearings", () => {

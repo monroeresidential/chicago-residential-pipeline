@@ -1,7 +1,7 @@
 import { addressKey, normalizeAddress, type CanonicalAddress } from "../normalize/address";
 import {
   blankToNull, extractCitedKeys, matterKeyOf, normalizeCommunityArea, normalizeDpdAppNo, normalizePin,
-  normalizeRecordNumber, normalizeZoning, orgNameKey,
+  normalizeRecordNumber, normalizeZbaCaseNo, normalizeZoning, orgNameKey,
 } from "../normalize/primitives";
 import type { Issue, NormalizeResult, NormalizedRecord, OrgRole, RecordIdentifier, RecordOrganization, WireRecord } from "./types";
 
@@ -23,7 +23,8 @@ class Collector {
     const r = normalizeAddress(raw, zip);
     if (!r.ok) { this.issues.push({ field, raw, message: r.message, blocking: true }); return; }
     if (r.warning) this.issues.push({ field, raw, message: r.warning, blocking: false });
-    if (r.unit && !this.units.includes(r.unit)) this.units.push(r.unit);
+    const unit = r.unit ? `${addressKey(r.value)} ${r.unit}` : null;
+    if (unit && !this.units.includes(unit)) this.units.push(unit);
     if (!this.addresses.some((a) => addressKey(a) === addressKey(r.value))) this.addresses.push(r.value);
   }
   id(type: RecordIdentifier["type"], value: string, relation: RecordIdentifier["relation"]) {
@@ -82,7 +83,7 @@ const UNIT_NOTE = "address unit: ";
 /** Appends removed unit/suite designators to notes once (idempotent across denormalize → normalize). */
 function withUnits(notes: string | null, units: string[]): string | null {
   const parts = notes ? [notes] : [];
-  for (const u of units) if (!parts.some((p) => p.includes(`${UNIT_NOTE}${u}`))) parts.push(`${UNIT_NOTE}${u}`);
+  for (const u of [...units].sort()) if (!parts.some((p) => p.includes(`${UNIT_NOTE}${u}`))) parts.push(`${UNIT_NOTE}${u}`);
   return parts.length ? parts.join("; ") : null;
 }
 
@@ -110,7 +111,8 @@ export function normalizeRecord(rec: WireRecord): NormalizeResult {
       for (const contact of (d.contacts as { role: string; name: string }[] | null) ?? []) c.org(contactRole(contact.role), s(contact.name));
       for (const pin of (d.pin_list as string[] | null) ?? []) if (blankToNull(pin)) c.pin(pin);
       const rawUnits = (d.units as Record<string, number | null | undefined> | null) ?? null;
-      const u = rawUnits ? { total: n(rawUnits.total), dwelling: n(rawUnits.dwelling), efficiency: n(rawUnits.efficiency), affordable: n(rawUnits.affordable) } : null;
+      const counts = rawUnits ? { total: n(rawUnits.total), dwelling: n(rawUnits.dwelling), efficiency: n(rawUnits.efficiency), affordable: n(rawUnits.affordable) } : null;
+      const u = counts && Object.values(counts).some((v) => v !== null) ? counts : null; // all-unknown = no detail
       units = u ? (u.total ?? u.dwelling ?? null) : null;
       status = s(d.permit_status);
       eventDate = s(d.issue_date);
@@ -164,7 +166,7 @@ export function normalizeRecord(rec: WireRecord): NormalizeResult {
       break;
     }
     case "zba_case": {
-      sourceKey = (s(d.case_no) ?? sourceKey).toUpperCase();
+      sourceKey = normalizeZbaCaseNo(s(d.case_no) ?? sourceKey);
       c.id("zba_case_no", sourceKey, "self");
       c.address("address", s(d.address), zip);
       c.org("applicant", s(d.applicant)); c.org("owner", s(d.owner)); c.org("attorney", s(d.attorney));

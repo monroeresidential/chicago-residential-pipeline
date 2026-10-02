@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { sql } from "kysely";
 import type { z } from "zod";
 import { formatAddressDisplay } from "../../../shared/normalize/address";
-import { matterKeyOf, normalizeRecordNumber } from "../../../shared/normalize/primitives";
+import { matterKeyOf, normalizeRecordNumber, normalizeZbaCaseNo } from "../../../shared/normalize/primitives";
 import { diffRecords } from "../../../shared/records/diff";
 import { contentHash } from "../../../shared/records/hash";
 import { normalizeRecord } from "../../../shared/records/normalize-record";
@@ -45,7 +45,7 @@ export function validateRecord(raw: unknown):
   const key = env.data.source_key.trim().toUpperCase();
   const mismatch =
     (env.data.kind === "permit" && String(d.permit_number).trim().toUpperCase() !== key) ? "must equal data.permit_number"
-    : (env.data.kind === "zba_case" && String(d.case_no).trim().toUpperCase() !== key) ? "must equal data.case_no"
+    : (env.data.kind === "zba_case" && normalizeZbaCaseNo(String(d.case_no)) !== normalizeZbaCaseNo(key)) ? "must equal data.case_no"
     : (env.data.kind === "zoning_matter" && (() => {
         const rn = normalizeRecordNumber(String(d.record_number));
         return rn.ok && matterKeyOf(rn.value) !== matterKeyOf(key);

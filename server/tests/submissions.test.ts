@@ -100,6 +100,11 @@ describe("POST /v1/submissions", () => {
     expect(body.results[0]).toMatchObject({ outcome: "invalid", errors: [expect.objectContaining({ path: "source_key" })] });
   });
 
+  it("accepts a ZBA source_key that differs from case_no only in spacing", async () => {
+    const { body } = await json(await submit([{ ...zbaRecord({ case_no: "420 - 24 - S" }), source_key: "420-24-S" }]));
+    expect(body.results[0]).toMatchObject({ outcome: "queued_create", source_key: "420-24-S" });
+  });
+
   it("queues records with blocking normalization issues and flags them", async () => {
     await submit([zbaRecord({ address: "12 Gotham Blvd" })]);
     const [item] = await pending();
