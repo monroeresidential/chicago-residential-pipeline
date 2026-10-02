@@ -81,7 +81,7 @@ describe("community area, ZIP, zoning, blanks", () => {
   it.each([["21", 21], [21, 21], ["21 Avondale", 21], ["Avondale", 21], ["lake view", 6], ["Lakeview", 6], ["O'Hare", 76]])(
     "community area %s → %s", (raw, n) => expect(normalizeCommunityArea(raw)).toEqual({ ok: true, value: n }),
   );
-  it.each(["32.5", "32 Loop, 33 Near South Side", "32 Avondale"])("rejects conflicting community area %j", (raw) =>
+  it.each(["32.5", "32 Loop, 33 Near South Side", "32 Avondale", "32 Loop / 33", "Loop 33"])("rejects conflicting community area %j", (raw) =>
     expect(normalizeCommunityArea(raw).ok).toBe(false));
 
   it("rejects unknown areas and out-of-range numbers", () => {

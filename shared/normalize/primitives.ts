@@ -76,7 +76,9 @@ export function normalizeCommunityArea(raw: string | number): Result<number> {
   if (m) {
     const n = Number(m[1]);
     if (n < 1 || n > 77) return fail(`community area ${n} is not between 1 and 77`);
-    if (m[2] && AREA_BY_NAME.get(compactName(m[2])) !== n) return fail(`community area "${s}": number and name disagree`);
+    if (m[2] && (/\d/.test(m[2]) || AREA_BY_NAME.get(compactName(m[2])) !== n)) {
+      return fail(`community area "${s}" is not one area (number and name must match)`);
+    }
     return ok(n);
   }
   if (/\d/.test(s)) return fail(`community area "${s}" is not one area number or name`);

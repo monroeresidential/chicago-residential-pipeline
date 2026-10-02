@@ -131,6 +131,12 @@ describe("normalizeRecord", () => {
     expect(contentHash(nulls)).toBe(contentHash(none));
   });
 
+  it("blocks a community area with a conflicting extra number", () => {
+    const { record, issues } = normalizeRecord(zbaRecord({ community_area: "32 Loop / 33" }));
+    expect(record.community_area).toBeNull();
+    expect(issues).toEqual([expect.objectContaining({ field: "community_area", blocking: true })]);
+  });
+
   it("blocks an eLMS matter id that is not a GUID", () => {
     const { record, issues } = normalizeRecord(zoningRecord({ matter_id: "not-a-guid" }));
     expect(record.identifiers.some((i) => i.type === "elms_matter_id")).toBe(false);
