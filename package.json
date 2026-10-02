@@ -16,7 +16,8 @@
     "server:test": "pnpm --filter server test",
     "server:replay": "pnpm --filter server replay",
     "db:up": "docker compose -f server/compose.dev.yaml up -d --wait",
-    "db:pull": "bash server/scripts/db-pull.sh"
+    "db:pull": "bash server/scripts/db-pull.sh",
+    "streets:fetch": "tsx shared/scripts/fetch-streets.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
