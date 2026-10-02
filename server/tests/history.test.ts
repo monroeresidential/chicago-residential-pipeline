@@ -51,6 +51,11 @@ describe("history trigger", () => {
     expect(rev!.record_id).toBe("17161230040000");
   });
 
+  it("rejects an empty-string address suffix (null means none)", async () => {
+    await expect(withActor(db, "drew", "admin_edit", (q) =>
+      q.insertInto("addresses").values({ number_from: 1, number_to: 1, predir: "N", street_name: "BROADWAY", suffix: "" }).execute())).rejects.toThrow(/check/);
+  });
+
   it("allows only one site_state row", async () => {
     await expect(sql`insert into site_state (id) values (2)`.execute(db)).rejects.toThrow();
   });

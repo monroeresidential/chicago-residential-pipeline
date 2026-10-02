@@ -44,7 +44,8 @@ function expandRange(a: string, b: string): number {
 
 export function normalizeAddress(raw: string, zipRaw?: string | null): Result<CanonicalAddress> {
   let s = raw.toUpperCase().replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
-  s = s.replace(/\s(?:#|UNIT|STE|SUITE|APT|FL|FLOOR|RM|ROOM)\s*\S*.*$/, "").replace(/#\S*$/, "").trim();
+  s = s.replace(/\s\d+(?:ST|ND|RD|TH)\s+(?:FL|FLOOR)\b.*$/, "");
+  s = s.replace(/\s(?:#|(?:UNIT|STE|SUITE|APT|FL|FLOOR|RM|ROOM)\b)\s*\S*.*$/, "").replace(/#\S*$/, "").trim();
 
   const m = s.match(/^(\d+)(?:\s*(?:-|TO|THRU|THROUGH)\s*(\d+))?\s+(.+)$/);
   if (!m) return { ok: false, message: `address "${raw.trim()}" has no house number` };
@@ -81,8 +82,8 @@ export function normalizeAddress(raw: string, zipRaw?: string | null): Result<Ca
     const fits = candidates.some((r) => r[2] === suffix && inRange(r, from));
     if (!fits) {
       if (blockSuffixes.length === 1) {
-        warnings.push(`suffix ${suffix} corrected to ${blockSuffixes[0]} for the ${from} block`);
-        suffix = blockSuffixes[0]!;
+        warnings.push(`suffix ${suffix} corrected to ${blockSuffixes[0] || "none"} for the ${from} block`);
+        suffix = blockSuffixes[0] || null;
       } else if (!allSuffixes.includes(suffix)) {
         return { ok: false, message: `"${predir} ${streetName} ${suffix}" is not in the city street list` };
       }

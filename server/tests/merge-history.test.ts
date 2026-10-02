@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { zbaRecord } from "../../shared/tests/fixtures";
+import { zbaRecord, zoningRecord } from "../../shared/tests/fixtures";
 import { withActor } from "../src/db/actor";
 import { approveItem } from "../src/review/review";
 import { linkFiling, unlinkFiling } from "../src/store/edit";
@@ -54,6 +54,26 @@ describe("merge", () => {
     expect(f.primary_address_id).toBe(into);
   });
 
+  it("a record listing both merged spellings is no_change after the merge", async () => {
+    const rec = zoningRecord({ address: "111 W Monroe St", additional_addresses: ["111-123 W Monroe St"] });
+    await approveAll([rec]);
+    const rows = await ctx.db.selectFrom("addresses").select(["id", "number_to"]).orderBy("id").execute();
+    const from = rows.find((r) => r.number_to === 111)!.id;
+    const into = rows.find((r) => r.number_to === 123)!.id;
+    await withActor(ctx.db, "drew", `merge:address:${from}->${into}`, (q) => mergeValues(q, "address", from, into));
+    expect(await queueRecords(ctx, [rec])).toEqual([null]);
+  });
+
+  it("an override followed by a merge keeps Grok's original re-send at no_change", async () => {
+    await approveAll([zbaRecord()]);
+    const [id] = await queueRecords(ctx, [zbaRecord({ case_no: "2-26-Z", applicant: "4645 N0RTH CLARK LLC", units: 40 })]);
+    await approveItem(ctx.db, "drew", id!, { overrides: { units: 4 } });
+    const keep = await orgId("4645 NORTH CLARK LLC");
+    const typo = await orgId("4645 N0RTH CLARK LLC");
+    await withActor(ctx.db, "drew", `merge:organization:${typo}->${keep}`, (q) => mergeValues(q, "organization", typo, keep));
+    expect(await queueRecords(ctx, [zbaRecord({ case_no: "2-26-Z", applicant: "4645 N0RTH CLARK LLC", units: 40 })])).toEqual([null]);
+  });
+
   it("refuses to merge a row into itself", async () => {
     await approveAll([zbaRecord()]);
     const id = await orgId("4645 NORTH CLARK LLC");
@@ -94,6 +114,17 @@ describe("history and revert", () => {
     await withActor(ctx.db, "drew", "revert", (q) => revertTo(q, "filings", String(f), v));
     const row = await ctx.db.selectFrom("filings").select(["status", "content_hash"]).executeTakeFirstOrThrow();
     expect(row).toEqual({ status: "Approved", content_hash: before });
+  });
+
+  it("reverting a filing keeps its address pointers consistent", async () => {
+    const [f] = await approveAll([zbaRecord()]);
+    const [id] = await queueRecords(ctx, [zbaRecord({ address: "3700 W Oakdale Ave" })]);
+    await approveItem(ctx.db, "drew", id!);
+    const v1 = (await listHistory(ctx.db, "filings", String(f))).find((r) => r.op === "insert")!.version;
+    await withActor(ctx.db, "drew", "revert", (q) => revertTo(q, "filings", String(f), v1));
+    const row = await ctx.db.selectFrom("filings").select("primary_address_id").where("id", "=", f!).executeTakeFirstOrThrow();
+    const first = await ctx.db.selectFrom("filing_addresses").select("address_id").where("filing_id", "=", f!).where("position", "=", 0).executeTakeFirstOrThrow();
+    expect(row.primary_address_id).toBe(first.address_id);
   });
 
   it("404s an unknown version", async () => {

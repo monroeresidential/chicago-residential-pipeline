@@ -1,4 +1,4 @@
-import { normalizeAddress, type CanonicalAddress } from "../normalize/address";
+import { addressKey, normalizeAddress, type CanonicalAddress } from "../normalize/address";
 import {
   blankToNull, extractCitedKeys, matterKeyOf, normalizeCommunityArea, normalizeDpdAppNo, normalizePin,
   normalizeRecordNumber, normalizeZoning, orgNameKey,
@@ -22,7 +22,7 @@ class Collector {
     const r = normalizeAddress(raw, zip);
     if (!r.ok) { this.issues.push({ field, raw, message: r.message, blocking: primary }); return; }
     if (r.warning) this.issues.push({ field, raw, message: r.warning, blocking: false });
-    this.addresses.push(r.value);
+    if (!this.addresses.some((a) => addressKey(a) === addressKey(r.value))) this.addresses.push(r.value);
   }
   id(type: RecordIdentifier["type"], value: string, relation: RecordIdentifier["relation"]) {
     this.identifiers.set(`${type}|${value}|${relation}`, { type, value, relation });

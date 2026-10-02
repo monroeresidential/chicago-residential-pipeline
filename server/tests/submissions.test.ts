@@ -72,6 +72,19 @@ describe("POST /v1/submissions", () => {
     expect((await json(await submit([permitRecord({ permit_status: "COMPLETE" })]))).body.results[0].outcome).toBe("queued_create");
   });
 
+  it("concurrent chunks with the same key leave one pending item", async () => {
+    const results = await Promise.all([1, 2, 3].map((n) => submit([zbaRecord({ units: n })])));
+    expect(results.map((r) => r.status)).toEqual([202, 202, 202]);
+    expect((await pending()).length).toBe(1);
+  });
+
+  it("a NUL character fails only its own record", async () => {
+    const { status, body } = await json(await submit([zbaRecord({ notes: "bad\u0000ocr" }), permitRecord()]));
+    expect(status).toBe(202);
+    expect(body.results.map((r: any) => r.outcome)).toEqual(["invalid", "queued_create"]);
+    expect(body.results[0].errors[0].message).toMatch(/NUL/);
+  });
+
   it("reports invalid records and still queues the valid ones", async () => {
     const bad = permitRecord({ issue_date: "10/01/2026", ward: "42" });
     const { status, body } = await json(await submit([bad, zbaRecord()]));

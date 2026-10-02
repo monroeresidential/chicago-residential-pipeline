@@ -13,7 +13,10 @@ export type Revertible = (typeof REVERTIBLE)[number];
 
 const PROJECT_COLUMNS = ["dpd_map_no", "name", "developer", "units", "units_source_filing_id", "affordable_units", "tpc_usd", "program",
   "public_support", "status", "status_note", "flag", "confidence", "built_by_3f_url", "point", "sources", "notes", "visibility", "deleted_at"];
-const FILING_COLUMNS = ["primary_address_id", "community_area", "ward", "units", "status", "event_date", "in_target", "flag", "notes",
+// Revert covers a record's own scalar columns. Linked rows (addresses, parcels, identifiers, organizations,
+// a project's primary address) have their own history and are not rewound, so primary_address_id is left alone
+// to stay consistent with filing_addresses.
+const FILING_COLUMNS = ["community_area", "ward", "units", "status", "event_date", "in_target", "flag", "notes",
   "source_url", "attributes", "field_sources", "last_source_hash", "deleted_at"];
 
 export function listHistory(q: Db, table: HistoryTable, recordId: string) {

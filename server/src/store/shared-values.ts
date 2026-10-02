@@ -1,5 +1,5 @@
 import { sql } from "kysely";
-import type { CanonicalAddress } from "../../../shared/normalize/address";
+import { addressKey, type CanonicalAddress } from "../../../shared/normalize/address";
 import type { NormalizedRecord, RecordOrganization } from "../../../shared/records/types";
 import { geogPoint, type Db } from "../db/client";
 
@@ -71,6 +71,7 @@ export async function resolveAliases(q: Db, record: NormalizedRecord): Promise<N
       addresses.push({ ...rowToAddress(target), zip: target.zip ?? a.zip });
     } else addresses.push(a);
   }
+  const unique = addresses.filter((a, i) => addresses.findIndex((b) => addressKey(b) === addressKey(a)) === i);
   const orgs = new Map<string, RecordOrganization>();
   for (const o of record.organizations) {
     const found = await q.selectFrom("organizations").select(["id", "merged_into_id"]).where("name_key", "=", o.name_key).executeTakeFirst();
@@ -82,5 +83,5 @@ export async function resolveAliases(q: Db, record: NormalizedRecord): Promise<N
     orgs.set(`${resolved.role}|${resolved.name_key}`, resolved);
   }
   const organizations = [...orgs.values()].sort((x, y) => `${x.role}|${x.name_key}`.localeCompare(`${y.role}|${y.name_key}`));
-  return { ...record, addresses, organizations };
+  return { ...record, addresses: unique, organizations };
 }

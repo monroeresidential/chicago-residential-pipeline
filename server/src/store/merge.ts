@@ -1,7 +1,26 @@
 import { sql } from "kysely";
 import type { Db } from "../db/client";
 import { HttpError } from "../errors";
+import { contentHash } from "../../../shared/records/hash";
+import type { Issue, NormalizedRecord } from "../../../shared/records/types";
 import { refreshFilingHash } from "./filings";
+import { resolveAliases } from "./shared-values";
+
+/**
+ * After a merge, Grok's next push of the old spelling resolves to the survivor, so the stored hash of
+ * "what Grok last sent" must be recomputed the same way, or an overridden filing would re-queue.
+ */
+async function refreshSourceHash(q: Db, filingId: number): Promise<void> {
+  const f = await q.selectFrom("filings").select(["kind", "source_key", "last_source_hash"]).where("id", "=", filingId).executeTakeFirstOrThrow();
+  if (!f.last_source_hash) return;
+  const item = await q.selectFrom("queue_items").select(["proposed", "normalization_issues"])
+    .where("kind", "=", f.kind).where("source_key", "=", f.source_key).where("state", "=", "approved")
+    .where("content_hash", "=", f.last_source_hash).orderBy("id", "desc").limit(1).executeTakeFirst();
+  if (!item) return;
+  const record = await resolveAliases(q, item.proposed as NormalizedRecord);
+  const hash = contentHash(record, item.normalization_issues as Issue[]);
+  if (hash !== f.last_source_hash) await q.updateTable("filings").set({ last_source_hash: hash }).where("id", "=", filingId).execute();
+}
 
 export async function mergeValues(q: Db, type: "organization" | "address", fromId: number, intoId: number): Promise<{ affected_filings: number }> {
   if (fromId === intoId) throw new HttpError(400, "cannot merge a row into itself");
@@ -42,6 +61,9 @@ export async function mergeValues(q: Db, type: "organization" | "address", fromI
     await q.updateTable("addresses").set({ merged_into_id: intoId }).where("merged_into_id", "=", fromId).execute();
     await q.updateTable("addresses").set({ merged_into_id: intoId, deleted_at: new Date() }).where("id", "=", fromId).execute();
   }
-  for (const filingId of affected) await refreshFilingHash(q, filingId);
+  for (const filingId of affected) {
+    await refreshFilingHash(q, filingId);
+    await refreshSourceHash(q, filingId);
+  }
   return { affected_filings: affected.size };
 }

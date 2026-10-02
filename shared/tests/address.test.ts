@@ -29,6 +29,22 @@ describe("normalizeAddress", () => {
     ["3642 W. Oakdale Avenue", "3642 W OAKDALE AVE"],
   ])("%s → %s", (raw, key) => expect(addressKey(value(raw).value)).toBe(key));
 
+  it("does not mistake street names for unit designators", () => {
+    expect(addressKey(value("225 N Stetson Ave").value)).toBe("225 N STETSON AVE");
+    expect(addressKey(value("3000 W Flournoy St").value)).toBe("3000 W FLOURNOY ST");
+  });
+
+  it("drops floor designators", () => {
+    expect(addressKey(value("55 E Washington St, 2nd Floor").value)).toBe("55 E WASHINGTON ST");
+    expect(addressKey(value("55 E Washington St # 300").value)).toBe("55 E WASHINGTON ST");
+  });
+
+  it("uses null, never an empty string, for streets without a suffix", () => {
+    const corrected = value("3000 N Broadway St").value;
+    expect(corrected.suffix).toBeNull();
+    expect(corrected).toEqual(value("3000 N Broadway").value);
+  });
+
   it("fills a missing suffix when the block has only one", () => {
     expect(addressKey(value("3642 W Oakdale").value)).toBe("3642 W OAKDALE AVE");
   });

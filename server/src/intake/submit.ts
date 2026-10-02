@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { sql } from "kysely";
 import type { z } from "zod";
 import { formatAddressDisplay } from "../../../shared/normalize/address";
 import { matterKeyOf, normalizeRecordNumber } from "../../../shared/normalize/primitives";
@@ -31,6 +32,10 @@ const issuesOf = (e: z.ZodError, prefix = "") =>
 export function validateRecord(raw: unknown):
   | { ok: true; record: WireRecord }
   | { ok: false; source_key: string | null; errors: { path: string; message: string }[] } {
+  if (JSON.stringify(raw).includes("\\u0000")) {
+    const sk = typeof (raw as { source_key?: unknown })?.source_key === "string" ? (raw as { source_key: string }).source_key : null;
+    return { ok: false, source_key: sk, errors: [{ path: "", message: "record contains a NUL (\\u0000) character; remove it and resend" }] };
+  }
   const env = RecordEnvelope.safeParse(raw);
   const sk = typeof (raw as { source_key?: unknown })?.source_key === "string" ? ((raw as { source_key: string }).source_key) : null;
   if (!env.success) return { ok: false, source_key: sk, errors: issuesOf(env.error) };
@@ -48,6 +53,13 @@ export function validateRecord(raw: unknown):
     : null;
   if (mismatch) return { ok: false, source_key: sk, errors: [{ path: "source_key", message: mismatch }] };
   return { ok: true, record: { ...env.data, data: d } };
+}
+
+const SUBMISSION_LOCK = 727275;
+
+/** jsonb rejects NUL characters; such records are reported invalid, and the stored copy drops the character. */
+function storableBody(body: unknown): string {
+  return JSON.stringify(body, (_k, v) => (typeof v === "string" ? v.replace(/\u0000/g, "") : v));
 }
 
 class DryRunRollback extends Error {
@@ -120,8 +132,10 @@ export async function processSubmission(
 
   try {
     return await db.transaction().execute(async (trx) => {
+      // One submission at a time: chunks sent in parallel would otherwise not see each other's pending items.
+      await sql`select pg_advisory_xact_lock(${SUBMISSION_LOCK})`.execute(trx);
       const inserted = await trx.insertInto("submissions").values({
-        token_jti: principal.jti, idempotency_key: input.dryRun ? `dry-run:${randomUUID()}` : key, body_sha256: sha, body: input.rawBody,
+        token_jti: principal.jti, idempotency_key: input.dryRun ? `dry-run:${randomUUID()}` : key, body_sha256: sha, body: storableBody(input.body),
       }).onConflict((oc) => oc.columns(["token_jti", "idempotency_key"]).doNothing()).returning("id").executeTakeFirst();
       if (!inserted) return null; // a concurrent identical request won the race; answered below
       const results: RecordResult[] = [];

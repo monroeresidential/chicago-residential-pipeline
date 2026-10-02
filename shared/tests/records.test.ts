@@ -86,6 +86,11 @@ describe("normalizeRecord", () => {
     expect(issues).toEqual([expect.objectContaining({ field: "address", blocking: false })]);
   });
 
+  it("keeps one copy of an address listed twice", () => {
+    const { record } = normalizeRecord(zoningRecord({ address: "111 W Monroe St", additional_addresses: ["111 West Monroe Street", "79 W Monroe St"] }));
+    expect(record.addresses.map((a) => a.number_from)).toEqual([111, 79]);
+  });
+
   it("treats empty strings as null", () => {
     const { record } = normalizeRecord(zbaRecord({ attorney: "", vote: "" }));
     expect(record.organizations.some((o) => o.role === "attorney")).toBe(false);
