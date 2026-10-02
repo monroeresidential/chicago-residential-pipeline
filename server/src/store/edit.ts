@@ -35,6 +35,10 @@ export async function updateFilingRecord(q: Db, filingId: number, patch: Record<
   const v = validateRecord({ ...current, observed_at: new Date().toISOString(), data: { ...current.data, ...patch } });
   if (!v.ok) throw new HttpError(422, "invalid filing edit", v.errors);
   const { record, issues } = normalizeRecord(v.record);
+  const { source_key: currentKey } = await q.selectFrom("filings").select("source_key").where("id", "=", filingId).executeTakeFirstOrThrow();
+  if (record.source_key !== currentKey) {
+    throw new HttpError(422, `this edit would change the filing's identity (${currentKey} → ${record.source_key}); delete it and add the corrected filing instead`);
+  }
   const blocking = issues.filter((i) => i.blocking);
   if (blocking.length) throw new HttpError(422, "values could not be normalized", blocking);
   await writeFiling(q, await resolveAliases(q, record), { sourceHash: null });

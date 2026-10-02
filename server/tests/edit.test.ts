@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 import { beforeEach, describe, expect, it } from "vitest";
 import { normalizeRecord } from "../../shared/records/normalize-record";
-import { permitRecord, zoningRecord } from "../../shared/tests/fixtures";
+import { hearingRecord, permitRecord, zoningRecord } from "../../shared/tests/fixtures";
 import { withActor } from "../src/db/actor";
 import { markChanged, trackPublic } from "../src/publish/state";
 import { linkFiling, setFilingDeleted, unlinkFiling, updateFilingRecord } from "../src/store/edit";
@@ -100,6 +100,14 @@ describe("links and filing edits", () => {
     await expect(drew((q) => updateFilingRecord(q, f, { ward: "42" }))).rejects.toMatchObject({ status: 422 });
     await expect(drew((q) => updateFilingRecord(q, f, { address: "12 Gotham Blvd" }))).rejects.toMatchObject({ status: 422 });
     await expect(drew((q) => updateFilingRecord(q, f, { kind: "permit" }))).rejects.toMatchObject({ status: 422 });
+  });
+});
+
+describe("filing identity", () => {
+  it.each([{ hearing_date: "2026-07-09" }, { dpd_app_no: "99999" }])("refuses an edit that would change a hearing's identity: %j", async (patch) => {
+    const f = await drew((q) => writeFiling(q, normalizeRecord(hearingRecord()).record, { sourceHash: null }));
+    await expect(drew((q) => updateFilingRecord(q, f, patch))).rejects.toMatchObject({ status: 422 });
+    expect((await db.selectFrom("filings").select("id").execute()).length).toBe(1);
   });
 });
 

@@ -33,7 +33,28 @@ export function summarizeFiling(f: { kind: string; source_key: string; status: s
   }
 }
 
+/** Projects and their filings, read from one snapshot so a visibility change between the two reads can't leak. */
 export async function listProjects(q: Db, opts: { includeFilings?: boolean; includeDrafts?: boolean; ids?: string[] } = {}): Promise<PublishedProject[]> {
+  if (q.isTransaction) return readProjects(q, opts);
+  return q.transaction().setIsolationLevel("repeatable read").execute((t) => readProjects(t, opts));
+}
+
+/** Linked, live filings of the given projects — the query itself enforces live and (unless drafts) published projects. */
+export async function publicFilings(q: Db, projectIds: string[], includeDrafts: boolean): Promise<(PublicFiling & { project_id: string })[]> {
+  if (!projectIds.length) return [];
+  const rows = await q.selectFrom("project_filings as pf").innerJoin("filings as f", "f.id", "pf.filing_id")
+    .innerJoin("projects as p", "p.id", "pf.project_id")
+    .select(["pf.project_id", "pf.role", "f.kind", "f.source_key", "f.event_date", "f.status", "f.units", "f.source_url", "f.attributes"])
+    .where("f.deleted_at", "is", null).where("p.deleted_at", "is", null).where("pf.project_id", "in", projectIds)
+    .$if(!includeDrafts, (b) => b.where("p.visibility", "=", "published"))
+    .orderBy(sql`f.event_date desc nulls last`).orderBy("f.id", "desc").execute();
+  return rows.map((f) => ({
+    project_id: f.project_id, kind: f.kind as Kind, source_key: f.source_key, role: f.role, event_date: f.event_date, status: f.status,
+    units: f.units, summary: summarizeFiling({ ...f, attributes: f.attributes as Record<string, unknown> }), source_url: f.source_url,
+  }));
+}
+
+async function readProjects(q: Db, opts: { includeFilings?: boolean; includeDrafts?: boolean; ids?: string[] }): Promise<PublishedProject[]> {
   const rows = await q.selectFrom("projects as p")
     .leftJoin("project_addresses as pa", (j) => j.onRef("pa.project_id", "=", "p.id").on("pa.is_primary", "=", true))
     .leftJoin("addresses as a", "a.id", "pa.address_id")
@@ -61,16 +82,8 @@ export async function listProjects(q: Db, opts: { includeFilings?: boolean; incl
   }));
 
   if (opts.includeFilings && projects.length) {
-    const filings = await q.selectFrom("project_filings as pf").innerJoin("filings as f", "f.id", "pf.filing_id")
-      .select(["pf.project_id", "pf.role", "f.kind", "f.source_key", "f.event_date", "f.status", "f.units", "f.source_url", "f.attributes"])
-      .where("f.deleted_at", "is", null).where("pf.project_id", "in", projects.map((p) => p.id))
-      .orderBy(sql`f.event_date desc nulls last`).orderBy("f.id", "desc").execute();
-    for (const p of projects) {
-      p.filings = filings.filter((f) => f.project_id === p.id).map((f) => ({
-        kind: f.kind as Kind, source_key: f.source_key, role: f.role, event_date: f.event_date, status: f.status, units: f.units,
-        summary: summarizeFiling({ ...f, attributes: f.attributes as Record<string, unknown> }), source_url: f.source_url,
-      }));
-    }
+    const filings = await publicFilings(q, projects.map((p) => p.id), Boolean(opts.includeDrafts));
+    for (const p of projects) p.filings = filings.filter((f) => f.project_id === p.id).map(({ project_id: _p, ...f }) => f);
   }
   return projects;
 }

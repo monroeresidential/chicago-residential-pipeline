@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { permitRecord, zbaRecord, zoningRecord } from "../../shared/tests/fixtures";
+import { hearingRecord, permitRecord, zbaRecord, zoningRecord } from "../../shared/tests/fixtures";
 import { sql } from "kysely";
 import { withActor } from "../src/db/actor";
 import { INTAKE_LOCK } from "../src/db/locks";
@@ -53,6 +53,12 @@ describe("approve", () => {
     await approveItem(ctx.db, "drew", id, { overrides: { address: "3642 W. Oakdale Avenue" } });
     const filing = await ctx.db.selectFrom("filings").select("id").executeTakeFirstOrThrow();
     expect((await loadFilingRecord(ctx.db, filing.id)).addresses[0]?.street_name).toBe("OAKDALE");
+  });
+
+  it("refuses an override that would change the record's identity", async () => {
+    const id = await one(hearingRecord());
+    await expect(approveItem(ctx.db, "drew", id, { overrides: { hearing_date: "2026-07-09" } })).rejects.toMatchObject({ status: 422 });
+    expect((await ctx.db.selectFrom("filings").select("id").execute()).length).toBe(0);
   });
 
   it("override then original resend is no_change", async () => {

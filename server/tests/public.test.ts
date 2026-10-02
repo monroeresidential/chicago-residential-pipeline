@@ -5,7 +5,7 @@ import { normalizeRecord } from "../../shared/records/normalize-record";
 import { permitRecord, zoningRecord } from "../../shared/tests/fixtures";
 import { withActor } from "../src/db/actor";
 import { DEBOUNCE_MS, publishNow, runPublishTick, triggerSiteBuild } from "../src/publish/trigger";
-import { getAsOf, listProjects, projectStats } from "../src/read/public";
+import { getAsOf, listProjects, projectStats, publicFilings } from "../src/read/public";
 import { linkFiling } from "../src/store/edit";
 import { writeFiling } from "../src/store/filings";
 import { createProjectRow } from "../src/store/projects";
@@ -53,6 +53,18 @@ describe("listProjects", () => {
       source_url: "https://chicityclerkelms.chicago.gov/Matter/?matterId=example",
     }]);
     expect(JSON.stringify(p)).not.toContain("drive.google");
+  });
+
+  it("the filings query itself only returns filings of live, published projects", async () => {
+    await seed();
+    const z2 = await withActor(db, "drew", "admin_edit", async (q) => {
+      const id = await writeFiling(q, normalizeRecord(zoningRecord({ record_number: "O2026-0099999" })).record, { sourceHash: null });
+      await linkFiling(q, "secret", id, "drew", "manual");
+      return id;
+    });
+    expect(z2).toBeGreaterThan(0);
+    expect((await publicFilings(db, ["secret", "gone"], false)).length).toBe(0);
+    expect((await publicFilings(db, ["secret"], true)).length).toBe(1);
   });
 
   it("feeds the existing GeoJSON builder and stats", async () => {

@@ -37,14 +37,21 @@ export async function mergeValues(q: Db, type: "organization" | "address", fromI
 
   // Filings whose accepted source (the approved Grok proposal) mentions the merged-away row, whether or not the
   // filing still references it after edits: their "what Grok sent" hash changes with the merge.
-  const fromRow = type === "organization"
-    ? await q.selectFrom("organizations").select("name_key").where("id", "=", fromId).executeTakeFirstOrThrow()
-    : await q.selectFrom("addresses").select(["number_from", "number_to", "predir", "street_name", "suffix"]).where("id", "=", fromId).executeTakeFirstOrThrow();
-  const pattern = type === "organization"
-    ? { organizations: [{ name_key: (fromRow as { name_key: string }).name_key }] }
-    : { addresses: [fromRow] };
+  // The merged-away row and every spelling merged into it earlier (merges repoint aliases directly to their target).
+  const patterns: object[] = [];
+  if (type === "organization") {
+    const keys = await q.selectFrom("organizations").select("name_key")
+      .where((eb) => eb.or([eb("id", "=", fromId), eb("merged_into_id", "=", fromId)])).execute();
+    for (const k of keys) patterns.push({ organizations: [{ name_key: k.name_key }] });
+  } else {
+    const rows = await q.selectFrom("addresses").select(["number_from", "number_to", "predir", "street_name", "suffix"])
+      .where((eb) => eb.or([eb("id", "=", fromId), eb("merged_into_id", "=", fromId)])).execute();
+    for (const r of rows) patterns.push({ addresses: [r] });
+  }
   const sourceDependents = (await q.selectFrom("filings as f").innerJoin("queue_items as qi", "qi.id", "f.source_item_id")
-    .select("f.id").where(sql<boolean>`qi.proposed @> ${JSON.stringify(pattern)}::jsonb`).execute()).map((r) => r.id);
+    .select("f.id")
+    .where((eb) => eb.or(patterns.map((p) => eb(sql<boolean>`qi.proposed @> ${JSON.stringify(p)}::jsonb`, "=", true))))
+    .execute()).map((r) => r.id);
 
   const affected = new Set<number>();
   if (type === "organization") {

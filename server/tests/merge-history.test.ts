@@ -138,6 +138,20 @@ describe("merge", () => {
     expect(await queueRecords(ctx, [original])).toEqual([null]);
   });
 
+  it("successive merges still refresh a source whose spelling was merged earlier and edited away", async () => {
+    await approveAll([zbaRecord(), zbaRecord({ case_no: "6-26-Z", applicant: "4645 N0RTH CLARK LLC" }), zbaRecord({ case_no: "7-26-Z", applicant: "4645 NORTH CLARK LTD" })]);
+    const original = zbaRecord({ case_no: "2-26-Z", applicant: "4645 N0RTH CLARK LLC", units: 40 });
+    const [id] = await queueRecords(ctx, [original]);
+    const { filing_id } = await approveItem(ctx.db, "drew", id!, { overrides: { units: 4 } });
+    const A = await orgId("4645 N0RTH CLARK LLC");
+    const B = await orgId("4645 NORTH CLARK LTD");
+    const C = await orgId("4645 NORTH CLARK LLC");
+    await withActor(ctx.db, "drew", "merge:organization:A->B", (q) => mergeValues(q, "organization", A, B));
+    await withActor(ctx.db, "drew", "admin_edit", (q) => updateFilingRecord(q, filing_id, { applicant: "Someone Else LLC" }));
+    await withActor(ctx.db, "drew", "merge:organization:B->C", (q) => mergeValues(q, "organization", B, C));
+    expect(await queueRecords(ctx, [original])).toEqual([null]);
+  });
+
   it("refuses to merge a row into itself", async () => {
     await approveAll([zbaRecord()]);
     const id = await orgId("4645 NORTH CLARK LLC");

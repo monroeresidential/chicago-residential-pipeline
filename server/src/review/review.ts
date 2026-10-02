@@ -48,6 +48,9 @@ export async function approveItem(db: Db, reviewer: string, id: number, rawOpts:
       const v = validateRecord({ ...raw, data: { ...raw.data, ...opts.overrides } });
       if (!v.ok) throw new HttpError(422, "overrides are not valid", v.errors);
       const n = normalizeRecord(v.record);
+      if (n.record.source_key !== item.source_key) {
+        throw new HttpError(422, `overrides would change the record's identity (${item.source_key} → ${n.record.source_key}); reject it instead`);
+      }
       record = await resolveAliases(q, n.record);
       issues = n.issues;
     }
