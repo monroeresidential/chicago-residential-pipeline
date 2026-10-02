@@ -1,0 +1,78 @@
+import { describe, expect, it } from "vitest";
+import {
+  blankToNull, extractCitedKeys, formatPin, looseOrgKey, matterKeyOf, normalizeCommunityArea, normalizeDpdAppNo,
+  normalizePin, normalizeRecordNumber, normalizeZip, normalizeZoning, orgNameKey,
+} from "../normalize/primitives";
+
+describe("normalizePin", () => {
+  it.each([
+    ["17-09-123-004-0000", "17091230040000"],
+    ["17091230040000", "17091230040000"],
+    ["17-09-123-004", "17091230040000"],
+    [" 17 09 123 004 0000 ", "17091230040000"],
+  ])("%s → %s", (raw, pin) => expect(normalizePin(raw)).toEqual({ ok: true, value: pin }));
+
+  it("rejects other lengths", () => expect(normalizePin("17-09-123").ok).toBe(false));
+  it("formats for display", () => expect(formatPin("17091230040000")).toBe("17-09-123-004-0000"));
+});
+
+describe("identifiers", () => {
+  it.each([["APP23020T1", "23020"], ["23020", "23020"], ["app #23020", "23020"], ["23020T1", "23020"]])(
+    "DPD app # %s → %s", (raw, v) => expect(normalizeDpdAppNo(raw)).toEqual({ ok: true, value: v }),
+  );
+  it("rejects a DPD app # without digits", () => expect(normalizeDpdAppNo("pending").ok).toBe(false));
+
+  it.each([["o2026-0025202", "O2026-0025202"], ["SO2026-0023894", "SO2026-0023894"], [" O2026 -0025202", "O2026-0025202"]])(
+    "record number %s → %s", (raw, v) => expect(normalizeRecordNumber(raw)).toEqual({ ok: true, value: v }),
+  );
+  it("rejects a malformed record number", () => expect(normalizeRecordNumber("2026-25202").ok).toBe(false));
+  it("matter key strips one leading S", () => {
+    expect(matterKeyOf("SO2026-0023894")).toBe("O2026-0023894");
+    expect(matterKeyOf("O2026-0025202")).toBe("O2026-0025202");
+  });
+
+  it("finds ordinance and APP numbers cited in permit conditions", () => {
+    expect(extractCitedKeys("PER SO2026-0023894 ... APP23020T1; also app 23021")).toEqual({
+      dpd_app_no: ["23020", "23021"], record_number: ["SO2026-0023894"],
+    });
+    expect(extractCitedKeys("NO CONDITIONS")).toEqual({ dpd_app_no: [], record_number: [] });
+  });
+});
+
+describe("organization keys", () => {
+  it.each([
+    ["4645 North Clark, LLC", "4645 NORTH CLARK LLC"],
+    ["4645 NORTH CLARK L.L.C.", "4645 NORTH CLARK LLC"],
+    ["4645 North Clark L L C", "4645 NORTH CLARK LLC"],
+    ["Golub & Co.", "GOLUB AND CO"],
+    ["Acme, Inc.", "ACME INC"],
+  ])("%s → %s", (raw, key) => expect(orgNameKey(raw)).toBe(key));
+
+  it("returns null for punctuation-only names", () => expect(orgNameKey(" ., ")).toBeNull());
+  it("loose key drops entity suffixes", () => {
+    expect(looseOrgKey("XIMENA CASTRO ESQ")).toBe("XIMENA CASTRO");
+    expect(looseOrgKey("4645 NORTH CLARK LLC")).toBe("4645 NORTH CLARK");
+  });
+});
+
+describe("community area, ZIP, zoning, blanks", () => {
+  it.each([["21", 21], [21, 21], ["21 Avondale", 21], ["Avondale", 21], ["lake view", 6], ["Lakeview", 6], ["O'Hare", 76]])(
+    "community area %s → %s", (raw, n) => expect(normalizeCommunityArea(raw)).toEqual({ ok: true, value: n }),
+  );
+  it("rejects unknown areas and out-of-range numbers", () => {
+    expect(normalizeCommunityArea("Gotham").ok).toBe(false);
+    expect(normalizeCommunityArea("78").ok).toBe(false);
+  });
+  it("ZIP keeps five digits", () => {
+    expect(normalizeZip("60603-1234")).toEqual({ ok: true, value: "60603" });
+    expect(normalizeZip("6060").ok).toBe(false);
+  });
+  it.each([["b3-2", "B3-2"], ["DX - 12", "DX-12"], ["PD1234", "PD 1234"], ["PD #1234", "PD 1234"], ["pd", "PD"], ["PMD 4a", "PMD 4A"]])(
+    "zoning %s → %s", (raw, v) => expect(normalizeZoning(raw)).toBe(v),
+  );
+  it("blankToNull", () => {
+    expect(blankToNull("  ")).toBeNull();
+    expect(blankToNull(" x ")).toBe("x");
+    expect(blankToNull(undefined)).toBeNull();
+  });
+});
