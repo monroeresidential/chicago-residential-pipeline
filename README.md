@@ -44,6 +44,13 @@ tiles/bin/pmtiles extract "https://build.protomaps.com/$BUILD" tiles/chicago.pmt
 pnpm exec wrangler r2 object put chicago-pipeline-tiles/chicago.pmtiles --file tiles/chicago.pmtiles --remote --content-type application/octet-stream
 ```
 
+## Data platform
+
+`server/` is the API, review queue and MCP server that Grok's permit and zoning feeds post to (stage 1 of the
+data platform). See `server/README.md` for setup, deploys and local development, and the design in
+`docs/superpowers/specs/2026-10-02-data-platform-design.md` (Grok's wire format:
+`docs/superpowers/specs/2026-10-02-grok-submission-api.md`). The site still reads `data/projects.csv` until stage 2.
+
 ## Deploy
 
 Pushes to `main` deploy automatically (Cloudflare Workers Builds). Manual deploy:
