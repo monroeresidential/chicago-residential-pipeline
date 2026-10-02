@@ -17,7 +17,8 @@ export function hashable(r: NormalizedRecord): unknown {
   const { point: _p, field_sources: _f, organizations, identifiers, parcels, addresses, ...rest } = r;
   return {
     ...rest,
-    addresses: addresses.map(addressKey), // order kept: [0] is the primary address
+    // [0] is the primary address; the order of the others carries no meaning
+    addresses: [...addresses.slice(0, 1).map(addressKey), ...addresses.slice(1).map(addressKey).sort()],
     parcels: [...parcels].sort(),
     identifiers: identifiers.map((i) => `${i.type}:${i.value}:${i.relation}`).sort(),
     organizations: organizations.map((o) => `${o.role}:${o.name_key}`).sort(),

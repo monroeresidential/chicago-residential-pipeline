@@ -36,6 +36,7 @@ describe("identifiers", () => {
       dpd_app_no: ["23020", "23021"], record_number: ["SO2026-0023894"],
     });
     expect(extractCitedKeys("NO CONDITIONS")).toEqual({ dpd_app_no: [], record_number: [] });
+    expect(extractCitedKeys("PER O2020-1234")).toEqual({ dpd_app_no: [], record_number: ["O2020-1234"] });
   });
 });
 
@@ -46,6 +47,7 @@ describe("organization keys", () => {
     ["4645 North Clark L L C", "4645 NORTH CLARK LLC"],
     ["Golub & Co.", "GOLUB AND CO"],
     ["Acme, Inc.", "ACME INC"],
+    ["Example L  L  C", "EXAMPLE LLC"],
   ])("%s → %s", (raw, key) => expect(orgNameKey(raw)).toBe(key));
 
   it("returns null for punctuation-only names", () => expect(orgNameKey(" ., ")).toBeNull());

@@ -10,7 +10,7 @@ function flatten(r: NormalizedRecord): Flat {
     ...scalars,
     ...attributes,
     address: addresses[0] ? addressKey(addresses[0]) : null,
-    additional_addresses: addresses.slice(1).map(addressKey),
+    additional_addresses: addresses.slice(1).map(addressKey).sort(),
     organizations: organizations.map((o) => `${o.role}: ${o.display_name}`).sort(),
     organization_keys: organizations.map((o) => `${o.role}:${o.name_key}`).sort(),
     identifiers: identifiers.map((i) => `${i.type}:${i.value}${i.relation === "cited" ? " (cited)" : ""}`).sort(),

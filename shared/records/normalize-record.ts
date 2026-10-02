@@ -16,12 +16,14 @@ class Collector {
   orgs = new Map<string, RecordOrganization>();
   parcels = new Set<string>();
   addresses: CanonicalAddress[] = [];
+  units: string[] = [];
 
-  address(field: string, raw: string | null, zip: string | null, primary: boolean) {
+  address(field: string, raw: string | null, zip: string | null) {
     if (!raw) return;
     const r = normalizeAddress(raw, zip);
-    if (!r.ok) { this.issues.push({ field, raw, message: r.message, blocking: primary }); return; }
+    if (!r.ok) { this.issues.push({ field, raw, message: r.message, blocking: true }); return; }
     if (r.warning) this.issues.push({ field, raw, message: r.warning, blocking: false });
+    if (r.unit && !this.units.includes(r.unit)) this.units.push(r.unit);
     if (!this.addresses.some((a) => addressKey(a) === addressKey(r.value))) this.addresses.push(r.value);
   }
   id(type: RecordIdentifier["type"], value: string, relation: RecordIdentifier["relation"]) {
@@ -75,6 +77,15 @@ function sorted<T>(xs: Iterable<T>, key: (x: T) => string): T[] {
   return [...xs].sort((x, y) => key(x).localeCompare(key(y)));
 }
 
+const UNIT_NOTE = "address unit: ";
+
+/** Appends removed unit/suite designators to notes once (idempotent across denormalize → normalize). */
+function withUnits(notes: string | null, units: string[]): string | null {
+  const parts = notes ? [notes] : [];
+  for (const u of units) if (!parts.some((p) => p.includes(`${UNIT_NOTE}${u}`))) parts.push(`${UNIT_NOTE}${u}`);
+  return parts.length ? parts.join("; ") : null;
+}
+
 /** Wire record (already validated by DATA_SCHEMAS[kind]) → canonical record + issues. Pure. */
 export function normalizeRecord(rec: WireRecord): NormalizeResult {
   const d: Data = rec.data;
@@ -92,13 +103,14 @@ export function normalizeRecord(rec: WireRecord): NormalizeResult {
     case "permit": {
       sourceKey = (s(d.permit_number) ?? sourceKey).toUpperCase();
       c.id("permit_number", sourceKey, "self");
-      c.address("address", s(d.address), zip, true);
+      c.address("address", s(d.address), zip);
       const cited = extractCitedKeys(s(d.permit_condition) ?? "");
       for (const app of cited.dpd_app_no) c.id("dpd_app_no", app, "cited");
       for (const rn of cited.record_number) c.recordNumber(rn, "cited", "permit_condition");
       for (const contact of (d.contacts as { role: string; name: string }[] | null) ?? []) c.org(contactRole(contact.role), s(contact.name));
       for (const pin of (d.pin_list as string[] | null) ?? []) if (blankToNull(pin)) c.pin(pin);
-      const u = (d.units as Record<string, number | null> | null) ?? null;
+      const rawUnits = (d.units as Record<string, number | null | undefined> | null) ?? null;
+      const u = rawUnits ? { total: n(rawUnits.total), dwelling: n(rawUnits.dwelling), efficiency: n(rawUnits.efficiency), affordable: n(rawUnits.affordable) } : null;
       units = u ? (u.total ?? u.dwelling ?? null) : null;
       status = s(d.permit_status);
       eventDate = s(d.issue_date);
@@ -120,8 +132,8 @@ export function normalizeRecord(rec: WireRecord): NormalizeResult {
       const guid = s(d.matter_id);
       if (guid) c.id("elms_matter_id", guid.toLowerCase(), "self");
       c.dpd(s(d.dpd_app_no), "self");
-      c.address("address", s(d.address), zip, true);
-      for (const extra of (d.additional_addresses as string[] | null) ?? []) c.address("additional_addresses", blankToNull(extra), zip, false);
+      c.address("address", s(d.address), zip);
+      for (const extra of (d.additional_addresses as string[] | null) ?? []) c.address("additional_addresses", blankToNull(extra), zip);
       c.org("applicant", s(d.applicant)); c.org("owner", s(d.owner)); c.org("attorney", s(d.attorney));
       status = s(d.status);
       eventDate = s(d.introduced_date) ?? s(d.filed_date);
@@ -135,12 +147,13 @@ export function normalizeRecord(rec: WireRecord): NormalizeResult {
     }
     case "hearing_item": {
       const [datePart, ref] = sourceKey.split("|");
-      const app = normalizeDpdAppNo(s(d.dpd_app_no) ?? ref ?? "");
+      const refIsApp = /^(?:APP)?#?\d{4,}[A-Z0-9]*$/i.test((ref ?? "").replace(/\s+/g, ""));
+      const app = normalizeDpdAppNo(s(d.dpd_app_no) ?? (refIsApp ? ref! : ""));
       sourceKey = `${s(d.hearing_date) ?? datePart}|${app.ok ? app.value : (ref ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
       c.dpd(s(d.dpd_app_no), "self");
       const mk = s(d.matter_key);
       if (mk) c.recordNumber(mk, "cited", "matter_key");
-      c.address("address", s(d.address), zip, true);
+      c.address("address", s(d.address), zip);
       c.org("applicant", s(d.applicant));
       eventDate = s(d.hearing_date);
       attributes = {
@@ -153,7 +166,7 @@ export function normalizeRecord(rec: WireRecord): NormalizeResult {
     case "zba_case": {
       sourceKey = (s(d.case_no) ?? sourceKey).toUpperCase();
       c.id("zba_case_no", sourceKey, "self");
-      c.address("address", s(d.address), zip, true);
+      c.address("address", s(d.address), zip);
       c.org("applicant", s(d.applicant)); c.org("owner", s(d.owner)); c.org("attorney", s(d.attorney));
       status = s(d.outcome);
       eventDate = s(d.decision_date) ?? s(d.hearing_date) ?? s(d.first_hearing);
@@ -161,7 +174,9 @@ export function normalizeRecord(rec: WireRecord): NormalizeResult {
       attributes = {
         request_type: s(d.request_type), first_hearing: s(d.first_hearing), hearing_date: s(d.hearing_date),
         zoning_district: zoning(d.zoning_district), request: s(d.request), residential: b(d.residential),
-        vote: s(d.vote), decision_date: s(d.decision_date), hearings: d.hearings ?? [], resolution_pdf_url: s(d.resolution_pdf_url),
+        vote: s(d.vote), decision_date: s(d.decision_date), hearings: ((d.hearings as Record<string, unknown>[] | null) ?? []).map((h) => ({
+          date: s(h.date), outcome: s(h.outcome), vote: s(h.vote), continued_to: s(h.continued_to), source_url: s(h.source_url),
+        })), resolution_pdf_url: s(d.resolution_pdf_url),
       };
       break;
     }
@@ -181,7 +196,7 @@ export function normalizeRecord(rec: WireRecord): NormalizeResult {
     event_date: eventDate,
     in_target: d.in_target === true,
     flag,
-    notes: s(d.notes),
+    notes: withUnits(s(d.notes), c.units),
     source_url: sourceUrl,
     parcels: [...c.parcels].sort(),
     identifiers: sorted(c.identifiers.values(), (i) => `${i.type}|${i.value}|${i.relation}`),

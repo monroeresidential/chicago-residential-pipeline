@@ -42,14 +42,14 @@ export function matterKeyOf(recordNumber: string): string {
 export function extractCitedKeys(text: string): { dpd_app_no: string[]; record_number: string[] } {
   const upper = text.toUpperCase();
   const apps = [...upper.matchAll(/\bAPP\s*#?\s*(\d{4,})/g)].map((m) => m[1]!);
-  const records = [...upper.matchAll(/\b(S?O\d{4}-\d{5,8})\b/g)].map((m) => m[1]!);
+  const records = [...upper.matchAll(/\b(S?O\d{4}-\d{1,8})\b/g)].map((m) => m[1]!);
   return { dpd_app_no: [...new Set(apps)], record_number: [...new Set(records)] };
 }
 
 /** Comparison key for organization and person names. */
 export function orgNameKey(raw: string): string | null {
   let s = raw.toUpperCase().replace(/&/g, " AND ").replace(/[.,'"`’]/g, "");
-  s = s.replace(/[^A-Z0-9 ]+/g, " ");
+  s = s.replace(/[^A-Z0-9 ]+/g, " ").replace(/\s+/g, " ");
   s = s.replace(/\bL L C\b/g, "LLC").replace(/\bI N C\b/g, "INC").replace(/\s+/g, " ").trim();
   return s === "" ? null : s;
 }

@@ -5,7 +5,7 @@ import { diffRecords } from "../records/diff";
 import { contentHash, stableStringify } from "../records/hash";
 import { normalizeRecord } from "../records/normalize-record";
 import { DATA_SCHEMAS, RecordEnvelope, SubmissionEnvelope, submissionJsonSchema } from "../records/schemas";
-import { ALL_FIXTURES, permitRecord, zbaRecord, zoningRecord } from "./fixtures";
+import { ALL_FIXTURES, hearingRecord, permitRecord, zbaRecord, zoningRecord } from "./fixtures";
 
 describe("wire schemas", () => {
   it.each(ALL_FIXTURES.map((f) => [f().kind, f]))("%s fixture is valid", (_k, f) => {
@@ -89,6 +89,41 @@ describe("normalizeRecord", () => {
   it("keeps one copy of an address listed twice", () => {
     const { record } = normalizeRecord(zoningRecord({ address: "111 W Monroe St", additional_addresses: ["111 West Monroe Street", "79 W Monroe St"] }));
     expect(record.addresses.map((a) => a.number_from)).toEqual([111, 79]);
+  });
+
+  it("keeps distinct hearings that have address slugs instead of app numbers", () => {
+    const a = normalizeRecord({ ...hearingRecord({ dpd_app_no: null, matter_key: null }), source_key: "2026-06-11|3642-w-oakdale-ave" }).record;
+    const b = normalizeRecord({ ...hearingRecord({ dpd_app_no: null, matter_key: null }), source_key: "2026-06-11|3642-n-clark-st" }).record;
+    expect(a.source_key).toBe("2026-06-11|3642-w-oakdale-ave");
+    expect(b.source_key).not.toBe(a.source_key);
+    expect(normalizeRecord({ ...hearingRecord({ dpd_app_no: null }), source_key: "2026-06-11|APP23020T1" }).record.source_key).toBe("2026-06-11|23020");
+  });
+
+  it("blocks on any address that cannot be normalized, not only the primary", () => {
+    const { issues } = normalizeRecord(zoningRecord({ additional_addresses: ["12 Gotham Blvd"] }));
+    expect(issues).toEqual([expect.objectContaining({ field: "additional_addresses", raw: "12 Gotham Blvd", blocking: true })]);
+  });
+
+  it("keeps a removed unit designator in notes", () => {
+    const { record } = normalizeRecord(zbaRecord({ address: "3642 W. Oakdale Avenue, Suite 300", notes: "OCR checked" }));
+    expect(record.notes).toBe("OCR checked; address unit: SUITE 300");
+    const again = normalizeRecord(denormalizeRecord(record)).record;
+    expect(again.notes).toBe(record.notes);
+  });
+
+  it("ignores the order of secondary addresses", () => {
+    const a = normalizeRecord(zoningRecord({ additional_addresses: ["79 W Monroe St", "105 W Adams St"] })).record;
+    const b = normalizeRecord(zoningRecord({ additional_addresses: ["105 W Adams St", "79 W Monroe St"] })).record;
+    expect(contentHash(b)).toBe(contentHash(a));
+    expect(diffRecords(a, b)).toEqual({});
+  });
+
+  it("canonicalizes nested units and hearings", () => {
+    const omitted = normalizeRecord(permitRecord({ units: { total: 345 } })).record;
+    const nulls = normalizeRecord(permitRecord({ units: { total: 345, dwelling: null, efficiency: null, affordable: null } })).record;
+    expect(contentHash(omitted)).toBe(contentHash(nulls));
+    const h = (outcome: string, vote: string | null) => normalizeRecord(zbaRecord({ hearings: [{ date: "2024-10-18", outcome, vote, source_url: null }] })).record;
+    expect(contentHash(h(" Approved ", ""))).toBe(contentHash(h("Approved", null)));
   });
 
   it("treats empty strings as null", () => {

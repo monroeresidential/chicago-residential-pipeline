@@ -42,10 +42,19 @@ function expandRange(a: string, b: string): number {
   return Number(b.length < a.length ? a.slice(0, a.length - b.length) + b : b);
 }
 
-export function normalizeAddress(raw: string, zipRaw?: string | null): Result<CanonicalAddress> {
+export type AddressResult = Result<CanonicalAddress> & { unit?: string };
+
+export function normalizeAddress(raw: string, zipRaw?: string | null): AddressResult {
   let s = raw.toUpperCase().replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
-  s = s.replace(/\s\d+(?:ST|ND|RD|TH)\s+(?:FL|FLOOR)\b.*$/, "");
-  s = s.replace(/\s(?:#|(?:UNIT|STE|SUITE|APT|FL|FLOOR|RM|ROOM)\b)\s*\S*.*$/, "").replace(/#\S*$/, "").trim();
+  // Unit/suite/floor tails are not part of the canonical address; they are returned so the caller can keep them in notes.
+  const units: string[] = [];
+  const cut = (re: RegExp) => {
+    s = s.replace(re, (tail) => { units.push(tail.trim()); return ""; }).trim();
+  };
+  cut(/\s\d+(?:ST|ND|RD|TH)\s+(?:FL|FLOOR)\b.*$/);
+  cut(/\s(?:#|(?:UNIT|STE|SUITE|APT|FL|FLOOR|RM|ROOM)\b)\s*\S*.*$/);
+  cut(/#\S*$/);
+  const unit = units.length ? units.reverse().join(" ") : undefined;
 
   const m = s.match(/^(\d+)(?:\s*(?:-|TO|THRU|THROUGH)\s*(\d+))?\s+(.+)$/);
   if (!m) return { ok: false, message: `address "${raw.trim()}" has no house number` };
@@ -102,7 +111,7 @@ export function normalizeAddress(raw: string, zipRaw?: string | null): Result<Ca
   }
 
   const value: CanonicalAddress = { number_from: from, number_to: to, predir, street_name: streetName, suffix, zip };
-  return warnings.length ? { ok: true, value, warning: warnings.join("; ") } : { ok: true, value };
+  return { ok: true, value, ...(warnings.length ? { warning: warnings.join("; ") } : {}), ...(unit ? { unit } : {}) };
 }
 
 const range = (a: CanonicalAddress) => (a.number_from === a.number_to ? `${a.number_from}` : `${a.number_from}-${a.number_to}`);
