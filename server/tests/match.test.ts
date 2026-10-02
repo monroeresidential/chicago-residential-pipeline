@@ -72,6 +72,28 @@ describe("suggestProjects", () => {
   });
 });
 
+describe("citations and renumbering", () => {
+  it("a removed citation stops matching; a renumbered matter's old number still matches", async () => {
+    await tx(async (q) => {
+      await insertProject(q, { id: "p", lat: 41.95, lng: -87.7 });
+      const f = await writeFiling(q, norm(permitRecord({ address: "200 W Adams St", pin_list: [], lat: null, lon: null })), { sourceHash: null });
+      await linkForTest(q, "p", f);
+      await writeFiling(q, norm(permitRecord({ address: "200 W Adams St", pin_list: [], lat: null, lon: null, permit_condition: null })), { sourceHash: null });
+    });
+    const z = norm(zoningRecord({ address: "300 W Adams St", applicant: null, owner: null, attorney: null }));
+    expect(await suggestProjects(db, z)).toEqual([]);
+
+    await tx(async (q) => {
+      await insertProject(q, { id: "z", lat: 41.96, lng: -87.71 });
+      const m = await writeFiling(q, norm(zoningRecord({ record_number: "SO2026-0023894", address: "400 W Adams St", dpd_app_no: null })), { sourceHash: null });
+      await linkForTest(q, "z", m);
+      await writeFiling(q, norm(zoningRecord({ record_number: "O2026-0023894", address: "400 W Adams St", dpd_app_no: null })), { sourceHash: null });
+    });
+    const cites = norm(permitRecord({ permit_number: "100777777", address: "500 W Adams St", pin_list: [], lat: null, lon: null, permit_condition: "PER SO2026-0023894", contacts: [] }));
+    expect((await suggestProjects(db, cites)).map((x) => [x.project_id, x.strength])).toEqual([["z", "strong"]]);
+  });
+});
+
 describe("suggestStatusChange", () => {
   it("permit issued moves approved → permitted, never backwards", () => {
     const permit = norm(permitRecord());
@@ -82,6 +104,11 @@ describe("suggestStatusChange", () => {
     expect(suggestStatusChange("planning", norm(zoningRecord({ status: "Final - Passed (2026-06-17)" })))).toMatchObject({ to: "approved" });
     expect(suggestStatusChange("planning", norm(zoningRecord()))).toBeNull();
   });
+  it.each(["Disapproved", "Not Approved", "Final - Failed to Pass", "Denied"])("never treats %j as approval", (status) => {
+    expect(suggestStatusChange("planning", norm(zoningRecord({ status })))).toBeNull();
+    expect(suggestStatusChange("planning", norm(zbaRecord({ outcome: status })))).toBeNull();
+  });
+
   it("early-signal permits never change status", () => {
     expect(suggestStatusChange("planning", norm(permitRecord({ classification: "early_signal" })))).toBeNull();
   });

@@ -33,7 +33,7 @@ export function validateRecord(raw: unknown):
   | { ok: true; record: WireRecord }
   | { ok: false; source_key: string | null; errors: { path: string; message: string }[] } {
   if (JSON.stringify(raw).includes("\\u0000")) {
-    const sk = typeof (raw as { source_key?: unknown })?.source_key === "string" ? (raw as { source_key: string }).source_key : null;
+    const sk = typeof (raw as { source_key?: unknown })?.source_key === "string" ? stripNul((raw as { source_key: string }).source_key) : null;
     return { ok: false, source_key: sk, errors: [{ path: "", message: "record contains a NUL (\\u0000) character; remove it and resend" }] };
   }
   const env = RecordEnvelope.safeParse(raw);
@@ -57,9 +57,16 @@ export function validateRecord(raw: unknown):
 
 const SUBMISSION_LOCK = 727275;
 
-/** jsonb rejects NUL characters; such records are reported invalid, and the stored copy drops the character. */
+const stripNul = (v: string) => v.replace(/\u0000/g, "");
+
+/** jsonb rejects NUL characters (in values and keys); such records are reported invalid, and stored copies drop them. */
 function storableBody(body: unknown): string {
-  return JSON.stringify(body, (_k, v) => (typeof v === "string" ? v.replace(/\u0000/g, "") : v));
+  const clean = (v: unknown): unknown =>
+    typeof v === "string" ? stripNul(v)
+    : Array.isArray(v) ? v.map(clean)
+    : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [stripNul(k), clean(x)]))
+    : v;
+  return JSON.stringify(clean(body));
 }
 
 class DryRunRollback extends Error {
@@ -78,11 +85,21 @@ async function processRecord(q: Db, submissionId: number, index: number, raw: un
 
   const filing = await q.selectFrom("filings").select(["id", "content_hash", "last_source_hash", "deleted_at"])
     .where("kind", "=", record.kind).where("source_key", "=", record.source_key).executeTakeFirst();
-  if (filing && (hash === filing.content_hash || hash === filing.last_source_hash)) return { ...base, outcome: "no_change" };
+  // The source now says something already accepted or decided: any other pending version is stale.
+  const supersedeOthers = () => q.updateTable("queue_items").set({ state: "superseded" })
+    .where("kind", "=", record.kind).where("source_key", "=", record.source_key)
+    .where("state", "=", "pending").where("content_hash", "<>", hash).execute();
+  if (filing && (hash === filing.content_hash || hash === filing.last_source_hash)) {
+    await supersedeOthers();
+    return { ...base, outcome: "no_change" };
+  }
 
   const prior = await q.selectFrom("queue_items").select(["id", "content_hash"])
     .where("kind", "=", record.kind).where("source_key", "=", record.source_key).where("state", "in", ["pending", "rejected"]).execute();
-  if (prior.some((p) => p.content_hash === hash)) return { ...base, outcome: "no_change" };
+  if (prior.some((p) => p.content_hash === hash)) {
+    await supersedeOthers();
+    return { ...base, outcome: "no_change" };
+  }
 
   await q.updateTable("queue_items").set({ state: "superseded" })
     .where("kind", "=", record.kind).where("source_key", "=", record.source_key).where("state", "=", "pending").execute();
@@ -142,7 +159,7 @@ export async function processSubmission(
       for (const [index, raw] of env.data.records.entries()) results.push(await processRecord(trx, inserted.id, index, raw));
       if (input.dryRun) throw new DryRunRollback(results);
       const response: SubmissionResponse = { submission_id: inserted.id, results };
-      await trx.updateTable("submissions").set({ response: JSON.stringify(response) }).where("id", "=", inserted.id).execute();
+      await trx.updateTable("submissions").set({ response: storableBody(response) }).where("id", "=", inserted.id).execute();
       return response;
     }) ?? (await stored(db, principal.jti, key, sha));
   } catch (e) {

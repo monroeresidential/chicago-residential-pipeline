@@ -78,6 +78,21 @@ describe("POST /v1/submissions", () => {
     expect((await pending()).length).toBe(1);
   });
 
+  it("re-sending the accepted version supersedes a pending change", async () => {
+    await withActor(ctx.db, "test", "test", (q) => writeFiling(q, normalizeRecord(zoningRecord()).record, { sourceHash: null }));
+    await submit([zoningRecord({ status: "Final - Passed (2026-06-17)" })]);
+    expect((await json(await submit([zoningRecord()]))).body.results[0].outcome).toBe("no_change");
+    expect(await pending()).toEqual([]);
+  });
+
+  it("a NUL character in a key or field name still fails only its own record", async () => {
+    const bad = { ...zbaRecord(), source_key: "420-24-S\u0000", data: { ...zbaRecord().data, ["no\u0000te"]: "x" } };
+    const { status, body } = await json(await submit([bad, permitRecord()]));
+    expect(status).toBe(202);
+    expect(body.results.map((r: any) => r.outcome)).toEqual(["invalid", "queued_create"]);
+    expect((await pending()).length).toBe(1);
+  });
+
   it("a NUL character fails only its own record", async () => {
     const { status, body } = await json(await submit([zbaRecord({ notes: "bad\u0000ocr" }), permitRecord()]));
     expect(status).toBe(202);

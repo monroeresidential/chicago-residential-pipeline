@@ -60,7 +60,8 @@ export async function writeFiling(q: Db, record: NormalizedRecord, opts: { sourc
   for (const row of current) {
     if (wanted.some((w) => w.id === row.identifier_id && w.relation === row.relation)) continue;
     const match = q.updateTable("filing_identifiers").where("filing_id", "=", filingId).where("identifier_id", "=", row.identifier_id).where("relation", "=", row.relation);
-    if (KEEP_HISTORY.has(row.type)) await match.set({ current: false }).execute();
+    // Only a filing's own past numbers are kept (renumbered matters); a removed citation is simply gone.
+    if (row.relation === "self" && KEEP_HISTORY.has(row.type)) await match.set({ current: false }).execute();
     else await q.deleteFrom("filing_identifiers").where("filing_id", "=", filingId).where("identifier_id", "=", row.identifier_id).where("relation", "=", row.relation).execute();
   }
   for (const w of wanted) {

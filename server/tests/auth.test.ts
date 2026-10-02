@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { authenticate, requireRole, type AppEnv } from "../src/auth/middleware";
 import { issueToken, revokeToken, verifyToken } from "../src/auth/tokens";
 import { loadConfig } from "../src/config";
+import { createDb } from "../src/db/client";
 import { testConfig } from "./helpers/app";
 import { getTestDb, resetDb } from "./helpers/db";
 
@@ -33,6 +34,13 @@ describe("tokens", () => {
     expect(await verifyToken(db, "another-secret-another-secret-another", token)).toBeNull();
     await db.deleteFrom("tokens").where("jti", "=", jti).execute();
     expect(await verifyToken(db, testConfig.JWT_SECRET, token)).toBeNull();
+  });
+
+  it("raises database failures instead of reporting an invalid token", async () => {
+    const { token } = await issueToken(db, testConfig.JWT_SECRET, "grok", "submitter");
+    const down = createDb("postgres://pipeline:pipeline@127.0.0.1:1/none");
+    await expect(verifyToken(down, testConfig.JWT_SECRET, token)).rejects.toThrow();
+    await down.destroy();
   });
 
   it("never stores the token itself", async () => {

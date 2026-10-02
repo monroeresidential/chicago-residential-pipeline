@@ -21,14 +21,16 @@ export async function revokeToken(db: Db, jti: string): Promise<boolean> {
 }
 
 export async function verifyToken(db: Db, secret: string, token: string): Promise<Principal | null> {
+  let payload: { jti?: string; sub?: string; role?: unknown };
   try {
-    const { payload } = await jwtVerify(token, key(secret), { algorithms: [ALG] });
-    if (!payload.jti || !payload.sub) return null;
-    const row = await db.selectFrom("tokens").selectAll().where("jti", "=", payload.jti).executeTakeFirst();
-    if (!row || row.revoked_at || row.sub !== payload.sub || row.role !== payload.role) return null;
-    await db.updateTable("tokens").set({ last_used_at: new Date() }).where("jti", "=", row.jti).execute();
-    return { sub: row.sub, role: row.role as Role, jti: row.jti };
+    ({ payload } = await jwtVerify(token, key(secret), { algorithms: [ALG] }));
   } catch {
-    return null;
+    return null; // bad signature, malformed or wrong algorithm: an invalid token
   }
+  if (!payload.jti || !payload.sub) return null;
+  // Database errors propagate (→ 500, which Grok retries) instead of looking like a bad token (401, not retried).
+  const row = await db.selectFrom("tokens").selectAll().where("jti", "=", payload.jti).executeTakeFirst();
+  if (!row || row.revoked_at || row.sub !== payload.sub || row.role !== payload.role) return null;
+  await db.updateTable("tokens").set({ last_used_at: new Date() }).where("jti", "=", row.jti).execute();
+  return { sub: row.sub, role: row.role as Role, jti: row.jti };
 }
