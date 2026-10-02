@@ -2,8 +2,10 @@ node_modules/
 dist/
 .astro/
 .wrangler/
-.env
-.env.production
+.env*
+!.env.example
+server/certs/
+server/dist/
 .DS_Store
 tiles/
 test-results/

@@ -11,7 +11,12 @@
     "test:e2e": "playwright test",
     "data:check": "tsx scripts/check-data.ts",
     "geocode": "tsx scripts/geocode.ts",
-    "deploy": "astro build && wrangler deploy"
+    "deploy": "astro build && wrangler deploy",
+    "server:dev": "pnpm --filter server dev",
+    "server:test": "pnpm --filter server test",
+    "server:replay": "pnpm --filter server replay",
+    "db:up": "docker compose -f server/compose.dev.yaml up -d --wait",
+    "db:pull": "bash server/scripts/db-pull.sh"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
