@@ -24,7 +24,8 @@ export function formatPin(pin: string): string {
 /** DPD application number → its digits (APP23020T1, 23020T1, "app #23020" → 23020). */
 export function normalizeDpdAppNo(raw: string): Result<string> {
   // The whole value must be one application number: APP23020T1, 23020T1, "app #23020". Anything else is flagged.
-  const m = raw.toUpperCase().replace(/\s+/g, "").match(/^(?:APP)?#?(\d{4,})(?:T\d+)?$/);
+  // Spaces are allowed around the APP prefix and "#", never between digit groups ("23020 23021" is two numbers).
+  const m = raw.toUpperCase().match(/^\s*(?:APP\s*)?#?\s*(\d{4,})(?:T\d+)?\s*$/);
   return m ? ok(m[1]!) : fail(`DPD app # "${raw.trim()}" has no number`);
 }
 
@@ -50,7 +51,7 @@ export function extractCitedKeys(text: string): { dpd_app_no: string[]; record_n
 /** Comparison key for organization and person names. */
 export function orgNameKey(raw: string): string | null {
   // Accents fold to their base letter (Café = Cafe\u0301 = CAFE); other letters and digits are kept.
-  let s = raw.normalize("NFKD").replace(/\p{M}/gu, "").toUpperCase().replace(/&/g, " AND ").replace(/[.,'"`’]/g, "");
+  let s = raw.normalize("NFKD").replace(/\p{M}/gu, "").toUpperCase().replace(/&/g, " AND ").replace(/,/g, " ").replace(/[.'"`’]/g, "");
   s = s.replace(/[^\p{L}\p{N} ]+/gu, " ").replace(/\s+/g, " ");
   s = s.replace(/\bL L C\b/g, "LLC").replace(/\bI N C\b/g, "INC").replace(/\s+/g, " ").trim();
   return s === "" ? null : s;

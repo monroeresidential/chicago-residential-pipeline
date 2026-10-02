@@ -21,7 +21,8 @@ describe("identifiers", () => {
     "DPD app # %s → %s", (raw, v) => expect(normalizeDpdAppNo(raw)).toEqual({ ok: true, value: v }),
   );
   it("rejects a DPD app # without digits", () => expect(normalizeDpdAppNo("pending").ok).toBe(false));
-  it("rejects a DPD app # with unexplained extra content", () => expect(normalizeDpdAppNo("23020 / 23021").ok).toBe(false));
+  it.each(["23020 / 23021", "23020 23021", "23020\n23021"])("rejects a DPD app # with extra content: %j", (raw) =>
+    expect(normalizeDpdAppNo(raw).ok).toBe(false));
 
   it.each([["o2026-0025202", "O2026-0025202"], ["SO2026-0023894", "SO2026-0023894"], [" O2026 -0025202", "O2026-0025202"]])(
     "record number %s → %s", (raw, v) => expect(normalizeRecordNumber(raw)).toEqual({ ok: true, value: v }),
@@ -52,6 +53,7 @@ describe("organization keys", () => {
     ["Café LLC", "CAFE LLC"],
     ["Cafe\u0301 LLC", "CAFE LLC"],
     ["Caf LLC", "CAF LLC"],
+    ["Acme,Inc.", "ACME INC"],
   ])("%s → %s", (raw, key) => expect(orgNameKey(raw)).toBe(key));
 
   it("returns null for punctuation-only names", () => expect(orgNameKey(" ., ")).toBeNull());
