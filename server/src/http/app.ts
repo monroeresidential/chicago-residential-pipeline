@@ -5,6 +5,7 @@ import type { Config } from "../config";
 import type { Db } from "../db/client";
 import { HttpError } from "../errors";
 import { createOps } from "../ops";
+import { handleMcpRequest } from "../mcp/server";
 import { requestLogger } from "./logging";
 import { registerEditorRoutes } from "./routes/editor";
 import { registerPublicRoutes } from "./routes/public";
@@ -28,5 +29,6 @@ export function createApp(deps: AppDeps & { log?: (line: string) => void }): Hon
   registerPublicRoutes(app, deps, ops);
   registerSubmissionRoutes(app, deps);
   registerEditorRoutes(app, ops);
+  app.all("/mcp", (c) => handleMcpRequest(c.req.raw, ops, c.get("principal")));
   return app;
 }
