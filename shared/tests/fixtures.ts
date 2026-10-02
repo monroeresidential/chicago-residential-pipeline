@@ -2,7 +2,7 @@ import type { WireRecord } from "../records/types";
 
 export const permitRecord = (over: Record<string, unknown> = {}): WireRecord => ({
   kind: "permit",
-  source_key: "100912345",
+  source_key: (over.permit_number as string | undefined) ?? "100912345",
   observed_at: "2026-10-02T12:40:00Z",
   data: {
     permit_number: "100912345", classification: "qualifying_20plus", issue_date: "2026-09-30",
@@ -52,7 +52,7 @@ export const hearingRecord = (over: Record<string, unknown> = {}): WireRecord =>
 
 export const zbaRecord = (over: Record<string, unknown> = {}): WireRecord => ({
   kind: "zba_case",
-  source_key: "420-24-S",
+  source_key: (over.case_no as string | undefined) ?? "420-24-S",
   observed_at: "2026-10-02T12:51:02Z",
   data: {
     case_no: "420-24-S", request_type: "Special use", first_hearing: "2024-10-18", hearing_date: "2024-10-18",

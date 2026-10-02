@@ -27,3 +27,13 @@ export function postJson(app: ReturnType<typeof createApp>, path: string, body: 
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }
+
+let queueKey = 0;
+/** Submits records as Grok and returns the new queue item ids (in record order; null for non-queued). */
+export async function queueRecords(ctx: Awaited<ReturnType<typeof makeApp>>, records: unknown[]): Promise<(number | null)[]> {
+  const res = await postJson(ctx.app, "/v1/submissions", {
+    run: { program: "zoning", run_id: `t-${++queueKey}`, started_at: "2026-10-02T12:39:00Z" }, records,
+  }, ctx.grok, { "Idempotency-Key": `q-${queueKey}` });
+  const body = (await res.json()) as { results: { queue_item_id?: number }[] };
+  return body.results.map((r) => r.queue_item_id ?? null);
+}
