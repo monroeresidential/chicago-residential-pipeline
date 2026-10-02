@@ -3,6 +3,7 @@ import { sql } from "kysely";
 import { z } from "zod";
 import type { Status } from "../../../shared/constants";
 import { formatAddressDisplay } from "../../../shared/normalize/address";
+import { contentHash } from "../../../shared/records/hash";
 import { normalizeRecord } from "../../../shared/records/normalize-record";
 import type { Issue, NormalizedRecord, WireRecord } from "../../../shared/records/types";
 import { withActor } from "../db/actor";
@@ -60,7 +61,9 @@ export async function approveItem(db: Db, reviewer: string, id: number, rawOpts:
         return { stale: true }; // committed first, then reported (a throw here would roll the supersede back)
       }
     }
-    const filingId = await writeFiling(q, record, { sourceHash: item.content_hash, sourceItemId: id });
+    // What Grok sent, re-resolved against today's merges (the item may have been queued before one).
+    const sourceHash = contentHash(await resolveAliases(q, item.proposed as NormalizedRecord), item.normalization_issues as Issue[]);
+    const filingId = await writeFiling(q, record, { sourceHash, sourceItemId: id });
     let projectId: string | null = opts.link_to ?? null;
     let reason = "linked in review";
 

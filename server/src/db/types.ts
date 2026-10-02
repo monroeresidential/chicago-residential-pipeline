@@ -64,7 +64,7 @@ export interface DB {
     created_by: string; expires_at: Ts;
   };
   site_state: {
-    id: Generated<number>; dirty: Generated<boolean>; last_change_at: TsNull; last_build_requested_at: TsNull; last_published_at: TsNull;
+    id: Generated<number>; dirty: Generated<boolean>; change_seq: Generated<number>; last_change_at: TsNull; last_build_requested_at: TsNull; last_published_at: TsNull;
   };
   job_runs: { name: string; run_date: string; at: Generated<Date> };
 }

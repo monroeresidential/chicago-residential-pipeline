@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { zbaRecord, zoningRecord } from "../../shared/tests/fixtures";
+import { permitRecord, zbaRecord, zoningRecord } from "../../shared/tests/fixtures";
 import { withActor } from "../src/db/actor";
 import { approveItem } from "../src/review/review";
-import { linkFiling, unlinkFiling } from "../src/store/edit";
+import { linkFiling, unlinkFiling, updateFilingRecord } from "../src/store/edit";
 import { loadFilingRecord } from "../src/store/filings";
 import { listHistory, revertTo } from "../src/store/history";
 import { mergeValues } from "../src/store/merge";
@@ -115,6 +115,29 @@ describe("merge", () => {
     expect(await queueRecords(ctx, [original])).toEqual([null]);
   });
 
+  it("an item queued before a merge and approved after it with an override keeps resends at no_change", async () => {
+    await approveAll([zbaRecord(), zbaRecord({ case_no: "6-26-Z", applicant: "4645 N0RTH CLARK LLC" })]);
+    const original = zbaRecord({ case_no: "2-26-Z", applicant: "4645 N0RTH CLARK LLC", units: 40 });
+    const [id] = await queueRecords(ctx, [original]);
+    const typo = await orgId("4645 N0RTH CLARK LLC");
+    const keep = await orgId("4645 NORTH CLARK LLC");
+    await withActor(ctx.db, "drew", `merge:organization:${typo}->${keep}`, (q) => mergeValues(q, "organization", typo, keep));
+    await approveItem(ctx.db, "drew", id!, { overrides: { units: 4 } });
+    expect(await queueRecords(ctx, [original])).toEqual([null]);
+  });
+
+  it("a merge refreshes the source hash of a filing whose organization was since edited away", async () => {
+    await approveAll([zbaRecord(), zbaRecord({ case_no: "6-26-Z", applicant: "4645 N0RTH CLARK LLC" })]);
+    const original = zbaRecord({ case_no: "2-26-Z", applicant: "4645 N0RTH CLARK LLC", units: 40 });
+    const [id] = await queueRecords(ctx, [original]);
+    const { filing_id } = await approveItem(ctx.db, "drew", id!, { overrides: { units: 4 } });
+    await withActor(ctx.db, "drew", "admin_edit", (q) => updateFilingRecord(q, filing_id, { applicant: "Someone Else LLC" }));
+    const typo = await orgId("4645 N0RTH CLARK LLC");
+    const keep = await orgId("4645 NORTH CLARK LLC");
+    await withActor(ctx.db, "drew", `merge:organization:${typo}->${keep}`, (q) => mergeValues(q, "organization", typo, keep));
+    expect(await queueRecords(ctx, [original])).toEqual([null]);
+  });
+
   it("refuses to merge a row into itself", async () => {
     await approveAll([zbaRecord()]);
     const id = await orgId("4645 NORTH CLARK LLC");
@@ -166,6 +189,35 @@ describe("history and revert", () => {
     const row = await ctx.db.selectFrom("filings").select("primary_address_id").where("id", "=", f!).executeTakeFirstOrThrow();
     const first = await ctx.db.selectFrom("filing_addresses").select("address_id").where("filing_id", "=", f!).where("position", "=", 0).executeTakeFirstOrThrow();
     expect(row.primary_address_id).toBe(first.address_id);
+  });
+
+  it("revert restores the source reference with the source hash", async () => {
+    await approveAll([zbaRecord(), zbaRecord({ case_no: "6-26-Z", applicant: "4645 N0RTH CLARK LLC" })]);
+    // Both versions are approved with overrides, so the filing's contents never equal what Grok sent.
+    const v1 = zbaRecord({ case_no: "2-26-Z", applicant: "4645 N0RTH CLARK LLC", units: 40 });
+    const [i1] = await queueRecords(ctx, [v1]);
+    const { filing_id } = await approveItem(ctx.db, "drew", i1!, { overrides: { units: 4 } });
+    const [i2] = await queueRecords(ctx, [zbaRecord({ case_no: "2-26-Z", applicant: "4645 N0RTH CLARK LLC", units: 50 })]);
+    await approveItem(ctx.db, "drew", i2!, { overrides: { units: 5 } });
+    const v = (await listHistory(ctx.db, "filings", String(filing_id))).filter((r) => (r.after as any)?.source_item_id === i1).at(-1)!.version;
+    await withActor(ctx.db, "drew", "revert", (q) => revertTo(q, "filings", String(filing_id), v));
+    const typo = await orgId("4645 N0RTH CLARK LLC");
+    const keep = await orgId("4645 NORTH CLARK LLC");
+    await withActor(ctx.db, "drew", `merge:organization:${typo}->${keep}`, (q) => mergeValues(q, "organization", typo, keep));
+    expect(await queueRecords(ctx, [v1])).toEqual([null]);
+  });
+
+  it("revert of a reclassified permit restores its link role", async () => {
+    await withActor(ctx.db, "drew", "admin_edit", (q) => createProjectRow(q, { id: "p1", name: "P", address: "111 W Monroe St", program: "private",
+      status: "planning", status_note: "n", lat: 41.880635, lng: -87.631098, sources: ["https://example.com/a"], visibility: "published" }));
+    const [f] = await approveAll([permitRecord({ classification: "early_signal" })]);
+    await withActor(ctx.db, "drew", "admin_edit", async (q) => {
+      await linkFiling(q, "p1", f!, "drew", "manual");
+      await updateFilingRecord(q, f!, { classification: "qualifying_20plus" });
+    });
+    const v = (await listHistory(ctx.db, "filings", String(f))).find((r) => r.op === "insert")!.version;
+    await withActor(ctx.db, "drew", "revert", (q) => revertTo(q, "filings", String(f), v));
+    expect((await ctx.db.selectFrom("project_filings").select("role").executeTakeFirstOrThrow()).role).toBe("early_signal");
   });
 
   it("404s an unknown version", async () => {

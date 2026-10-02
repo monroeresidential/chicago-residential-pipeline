@@ -19,7 +19,7 @@ export async function affectsPublic(q: Db, scope: PublicScope): Promise<boolean>
 }
 
 export async function markDirty(q: Db): Promise<void> {
-  await sql`update site_state set dirty = true, last_change_at = now()`.execute(q);
+  await sql`update site_state set dirty = true, last_change_at = now(), change_seq = change_seq + 1`.execute(q);
 }
 
 export async function markChanged(q: Db, scope: PublicScope): Promise<void> {

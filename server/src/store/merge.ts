@@ -10,7 +10,7 @@ import { resolveAliases } from "./shared-values";
  * After a merge, Grok's next push of the old spelling resolves to the survivor, so the stored hash of
  * "what Grok last sent" must be recomputed the same way, or an overridden filing would re-queue.
  */
-async function refreshSourceHash(q: Db, filingId: number): Promise<void> {
+export async function refreshSourceHash(q: Db, filingId: number): Promise<void> {
   const f = await q.selectFrom("filings").select(["last_source_hash", "source_item_id"]).where("id", "=", filingId).executeTakeFirstOrThrow();
   if (!f.source_item_id) return;
   const item = await q.selectFrom("queue_items").select(["proposed", "normalization_issues"]).where("id", "=", f.source_item_id).executeTakeFirst();
@@ -34,6 +34,17 @@ export async function mergeValues(q: Db, type: "organization" | "address", fromI
   const table = type === "organization" ? "organizations" : "addresses";
   const rows = await q.selectFrom(table).select(["id"]).where("id", "in", [fromId, intoId]).where("deleted_at", "is", null).execute();
   if (rows.length !== 2) throw new HttpError(404, `both ${table} rows must exist and not be deleted`);
+
+  // Filings whose accepted source (the approved Grok proposal) mentions the merged-away row, whether or not the
+  // filing still references it after edits: their "what Grok sent" hash changes with the merge.
+  const fromRow = type === "organization"
+    ? await q.selectFrom("organizations").select("name_key").where("id", "=", fromId).executeTakeFirstOrThrow()
+    : await q.selectFrom("addresses").select(["number_from", "number_to", "predir", "street_name", "suffix"]).where("id", "=", fromId).executeTakeFirstOrThrow();
+  const pattern = type === "organization"
+    ? { organizations: [{ name_key: (fromRow as { name_key: string }).name_key }] }
+    : { addresses: [fromRow] };
+  const sourceDependents = (await q.selectFrom("filings as f").innerJoin("queue_items as qi", "qi.id", "f.source_item_id")
+    .select("f.id").where(sql<boolean>`qi.proposed @> ${JSON.stringify(pattern)}::jsonb`).execute()).map((r) => r.id);
 
   const affected = new Set<number>();
   if (type === "organization") {
@@ -75,7 +86,7 @@ export async function mergeValues(q: Db, type: "organization" | "address", fromI
   for (const filingId of affected) {
     if (type === "address") await compactAddresses(q, filingId);
     await refreshFilingHash(q, filingId);
-    await refreshSourceHash(q, filingId);
   }
+  for (const filingId of new Set([...affected, ...sourceDependents])) await refreshSourceHash(q, filingId);
   return { affected_filings: affected.size };
 }

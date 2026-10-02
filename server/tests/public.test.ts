@@ -98,6 +98,16 @@ describe("publishing", () => {
     expect(st.last_published_at).toBeNull();
   });
 
+  it("publishNow keeps a change committed while the hook ran, even from an earlier-started transaction", async () => {
+    await changeAt("2026-10-02T15:00:00Z");
+    await publishNow(db, testConfig, new Date("2026-10-02T15:01:00Z"), async () => {
+      // an edit whose transaction began before the publish (older timestamp) commits during the hook
+      await sql`update site_state set dirty = true, last_change_at = '2026-10-02T15:00:30Z', change_seq = change_seq + 1`.execute(db);
+      return "sent";
+    });
+    expect((await db.selectFrom("site_state").select("dirty").executeTakeFirstOrThrow()).dirty).toBe(true);
+  });
+
   it("publishNow triggers immediately", async () => {
     const trigger = vi.fn(async () => "sent" as const);
     expect(await publishNow(db, testConfig, new Date("2026-10-02T15:00:00Z"), trigger)).toBe("sent");

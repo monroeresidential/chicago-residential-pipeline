@@ -36,11 +36,12 @@ export async function runPublishTick(db: Db, config: Config, now = new Date(), t
 }
 
 export async function publishNow(db: Db, config: Config, now = new Date(), trigger: Trigger = triggerSiteBuild): Promise<"sent" | "skipped"> {
+  const { change_seq: seqBefore } = await db.selectFrom("site_state").select("change_seq").executeTakeFirstOrThrow();
   const result = await trigger(config); // on failure nothing changes: the site stays dirty and the scheduler retries
   await db.updateTable("site_state").set({
     last_build_requested_at: now, last_published_at: now,
-    // a change made while the hook ran must still trigger its own rebuild
-    dirty: sql`dirty and last_change_at > ${now}`,
+    // only clear "dirty" if no change was recorded while the hook ran (timestamps can't tell: they are transaction starts)
+    dirty: sql`case when change_seq = ${seqBefore} then false else dirty end`,
   }).execute();
   return result;
 }

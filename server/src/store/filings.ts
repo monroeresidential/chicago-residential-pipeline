@@ -87,9 +87,7 @@ export async function writeFiling(q: Db, record: NormalizedRecord, opts: { sourc
       .onConflict((oc) => oc.columns(["filing_id", "organization_id", "role"]).doNothing()).execute();
   }
 
-  // A reclassified filing (e.g. early signal → qualifying permit) keeps its project links' roles in step.
-  await q.updateTable("project_filings").set({ role: filingRole(record.kind, record.attributes) })
-    .where("filing_id", "=", filingId).where("role", "<>", filingRole(record.kind, record.attributes)).execute();
+  await syncLinkRoles(q, filingId);
 
   await refreshFilingHash(q, filingId);
   return filingId;
@@ -124,6 +122,13 @@ export async function loadFilingRecord(q: Db, filingId: number): Promise<Normali
     attributes: f.attributes as Record<string, unknown>,
     field_sources: f.field_sources as Record<string, string>,
   };
+}
+
+/** A reclassified filing (e.g. early signal → qualifying permit) keeps its project links' roles in step. */
+export async function syncLinkRoles(q: Db, filingId: number): Promise<void> {
+  const f = await q.selectFrom("filings").select(["kind", "attributes"]).where("id", "=", filingId).executeTakeFirstOrThrow();
+  const role = filingRole(f.kind as Kind, f.attributes as Record<string, unknown>);
+  await q.updateTable("project_filings").set({ role }).where("filing_id", "=", filingId).where("role", "<>", role).execute();
 }
 
 export async function refreshFilingHash(q: Db, filingId: number): Promise<void> {

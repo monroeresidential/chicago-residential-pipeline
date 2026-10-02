@@ -1,7 +1,8 @@
 import { sql } from "kysely";
 import type { Db } from "../db/client";
 import { HttpError } from "../errors";
-import { refreshFilingHash } from "./filings";
+import { refreshFilingHash, syncLinkRoles } from "./filings";
+import { refreshSourceHash } from "./merge";
 
 export const HISTORY_TABLES = [
   "projects", "filings", "project_filings", "project_addresses", "organizations", "addresses", "parcels", "identifiers",
@@ -17,7 +18,7 @@ const PROJECT_COLUMNS = ["dpd_map_no", "name", "developer", "units", "units_sour
 // a project's primary address) have their own history and are not rewound, so primary_address_id is left alone
 // to stay consistent with filing_addresses.
 const FILING_COLUMNS = ["community_area", "ward", "units", "status", "event_date", "in_target", "flag", "notes",
-  "source_url", "attributes", "field_sources", "last_source_hash", "deleted_at"];
+  "source_url", "attributes", "field_sources", "last_source_hash", "source_item_id", "deleted_at"];
 
 export function listHistory(q: Db, table: HistoryTable, recordId: string) {
   return q.selectFrom("revisions").selectAll().where("table_name", "=", table).where("record_id", "=", recordId).orderBy("version").execute();
@@ -53,5 +54,7 @@ export async function revertTo(q: Db, table: Revertible, recordId: string, versi
   else {
     await setFromJson(q, "filings", FILING_COLUMNS, recordId, target);
     await refreshFilingHash(q, Number(recordId));
+    await syncLinkRoles(q, Number(recordId)); // links stay; their roles follow the restored classification
+    await refreshSourceHash(q, Number(recordId)); // source reference and hash were restored together; re-resolve aliases
   }
 }
