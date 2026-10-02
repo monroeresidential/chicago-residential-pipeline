@@ -12,7 +12,7 @@ export interface PublicFiling {
   kind: Kind; source_key: string; role: string; event_date: string | null; status: string | null;
   units: number | null; summary: string; source_url: string | null;
 }
-export type PublishedProject = Project & { filings?: PublicFiling[]; visibility?: "draft" | "published" };
+export type PublishedProject = Project & { filings?: PublicFiling[]; visibility?: "draft" | "published"; units_source_filing_id?: number | null };
 
 const truncate = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
@@ -60,7 +60,7 @@ async function readProjects(q: Db, opts: { includeFilings?: boolean; includeDraf
     .leftJoin("addresses as a", "a.id", "pa.address_id")
     .select([
       "p.id", "p.dpd_map_no", "p.name", "p.developer", "p.units", "p.affordable_units", "p.tpc_usd", "p.program", "p.public_support",
-      "p.status", "p.status_note", "p.flag", "p.confidence", "p.built_by_3f_url", "p.sources", "p.notes", "p.visibility",
+      "p.status", "p.status_note", "p.flag", "p.confidence", "p.built_by_3f_url", "p.sources", "p.notes", "p.visibility", "p.units_source_filing_id",
       sql<number>`ST_Y(p.point::geometry)`.as("lat"), sql<number>`ST_X(p.point::geometry)`.as("lng"),
       "a.number_from", "a.number_to", "a.predir", "a.street_name", "a.suffix", "a.zip",
     ])
@@ -78,7 +78,8 @@ async function readProjects(q: Db, opts: { includeFilings?: boolean; includeDraf
     program: r.program as Project["program"], public_support: r.public_support, status: r.status as Status, status_note: r.status_note,
     flag: r.flag, confidence: r.confidence as Project["confidence"], built_by_3f_url: r.built_by_3f_url,
     lat: r.lat, lng: r.lng, sources: r.sources, notes: r.notes,
-    ...(opts.includeDrafts ? { visibility: r.visibility as "draft" | "published" } : {}),
+    // editor-only fields (drafts are only requested by editors)
+    ...(opts.includeDrafts ? { visibility: r.visibility as "draft" | "published", units_source_filing_id: r.units_source_filing_id } : {}),
   }));
 
   if (opts.includeFilings && projects.length) {

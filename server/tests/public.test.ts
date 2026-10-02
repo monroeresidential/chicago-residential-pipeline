@@ -96,10 +96,25 @@ describe("publishing", () => {
     expect(s.last_published_at?.toISOString()).toBe("2026-10-02T15:00:00.000Z");
   });
 
-  it("stays dirty when the trigger fails", async () => {
+  it("a failed scheduled rebuild changes nothing: still dirty, not marked published", async () => {
     await changeAt("2026-10-02T15:00:00Z");
     await expect(runPublishTick(db, testConfig, new Date("2026-10-02T16:00:00Z"), async () => { throw new Error("boom"); })).rejects.toThrow("boom");
-    expect((await db.selectFrom("site_state").select("dirty").executeTakeFirstOrThrow()).dirty).toBe(true);
+    const st = await db.selectFrom("site_state").selectAll().executeTakeFirstOrThrow();
+    expect(st.dirty).toBe(true);
+    expect(st.last_published_at).toBeNull();
+    expect(st.last_build_requested_at).toBeNull();
+  });
+
+  it("nothing is acknowledged until the hook returns (an interrupted run is retried)", async () => {
+    await changeAt("2026-10-02T15:00:00Z");
+    let seenDuringHook: boolean | undefined;
+    await runPublishTick(db, testConfig, new Date("2026-10-02T16:00:00Z"), async () => {
+      // what another process (or this one after a crash) would see while the hook runs
+      seenDuringHook = (await db.selectFrom("site_state").select("dirty").executeTakeFirstOrThrow()).dirty;
+      return "sent";
+    });
+    expect(seenDuringHook).toBe(true);
+    expect((await db.selectFrom("site_state").select("dirty").executeTakeFirstOrThrow()).dirty).toBe(false);
   });
 
   it("publishNow keeps the pending rebuild when the hook fails", async () => {

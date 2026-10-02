@@ -71,6 +71,17 @@ describe("editor flow over REST", () => {
     expect(p.filings.map((f: any) => f.source_key)).toEqual(["100912345"]);
   });
 
+  it("editors see a project's unit source filing; the public does not", async () => {
+    await project("pub", "published");
+    const [id] = await queueRecords(ctx, [permitRecord()]);
+    const approved = (await (await req("POST", `/v1/queue/${id}/approve`, ctx.drew, { link_to: "pub" })).json()) as any;
+    const patched = (await (await req("PATCH", "/v1/projects/pub", ctx.drew, { units_source_filing_id: approved.filing_id })).json()) as any;
+    expect(patched.units_source_filing_id).toBe(approved.filing_id);
+    const editorRead = (await (await req("GET", "/v1/projects/pub?include_drafts=true", ctx.drew)).json()) as any;
+    expect(editorRead.units_source_filing_id).toBe(approved.filing_id);
+    expect((await (await req("GET", "/v1/projects/pub")).json()) as any).not.toHaveProperty("units_source_filing_id");
+  });
+
   it("validates bodies (400) and reports missing records (404)", async () => {
     expect((await req("PATCH", "/v1/projects/pub", ctx.drew, { units: "many" })).status).toBe(400);
     expect((await req("GET", "/v1/queue/999", ctx.drew)).status).toBe(404);
