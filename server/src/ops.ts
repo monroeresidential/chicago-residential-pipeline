@@ -1,5 +1,7 @@
+import { sql } from "kysely";
 import type { Principal } from "./auth/tokens";
 import { withActor } from "./db/actor";
+import { INTAKE_LOCK } from "./db/locks";
 import type { Db } from "./db/client";
 import { HttpError } from "./errors";
 import type { AppDeps } from "./http/app";
@@ -18,7 +20,14 @@ import { getFiling, searchFilings, type FilingSearch } from "./store/search";
 import { toFeatureCollection } from "../../src/lib/geojson";
 
 export function createOps({ db, config }: AppDeps) {
-  const edit = <T>(p: Principal, fn: (q: Db) => Promise<T>) => withActor(db, p.sub, "admin_edit", fn);
+  // Every editor write takes the intake lock, like submissions and approvals, so merges, edits and approvals
+  // never interleave (e.g. two opposite merges, or an approval adding a reference a merge is moving).
+  const locked = <T>(p: Principal, reason: string, fn: (q: Db) => Promise<T>) =>
+    withActor(db, p.sub, reason, async (q) => {
+      await sql`select pg_advisory_xact_lock(${INTAKE_LOCK})`.execute(q);
+      return fn(q);
+    });
+  const edit = <T>(p: Principal, fn: (q: Db) => Promise<T>) => locked(p, "admin_edit", fn);
   return {
     // public
     listProjects: (opts: { includeFilings?: boolean; includeDrafts?: boolean } = {}) => listProjects(db, opts),
@@ -59,14 +68,14 @@ export function createOps({ db, config }: AppDeps) {
     deleteFiling: (p: Principal, id: number) => edit(p, (q) => trackPublic(q, { filingIds: [id] }, () => setFilingDeleted(q, id, true))),
     restoreFiling: (p: Principal, id: number) => edit(p, (q) => trackPublic(q, { filingIds: [id] }, () => setFilingDeleted(q, id, false))),
     merge: (p: Principal, type: "organization" | "address", fromId: number, intoId: number) =>
-      withActor(db, p.sub, `merge:${type}:${fromId}->${intoId}`, async (q) => {
+      locked(p, `merge:${type}:${fromId}->${intoId}`, async (q) => {
         const r = await mergeValues(q, type, fromId, intoId);
         await markDirty(q);
         return r;
       }),
     history: (table: HistoryTable, recordId: string) => listHistory(db, table, recordId),
     revert: (p: Principal, table: Revertible, recordId: string, version: number) =>
-      withActor(db, p.sub, `revert:${table}:${recordId}:${version}`, async (q) => {
+      locked(p, `revert:${table}:${recordId}:${version}`, async (q) => {
         await revertTo(q, table, recordId, version);
         await markDirty(q);
       }),

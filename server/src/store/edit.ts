@@ -44,4 +44,10 @@ export async function setFilingDeleted(q: Db, filingId: number, deleted: boolean
   const r = await q.updateTable("filings").set({ deleted_at: deleted ? new Date() : null })
     .where("id", "=", filingId).where("deleted_at", deleted ? "is" : "is not", null).executeTakeFirst();
   if (Number(r.numUpdatedRows) !== 1) throw new HttpError(404, deleted ? `no live filing ${filingId}` : `no deleted filing ${filingId}`);
+  if (deleted) {
+    // Pending updates were diffed against the live filing; once it is deleted they must not resurrect it.
+    const f = await q.selectFrom("filings").select(["kind", "source_key"]).where("id", "=", filingId).executeTakeFirstOrThrow();
+    await q.updateTable("queue_items").set({ state: "superseded" })
+      .where("kind", "=", f.kind).where("source_key", "=", f.source_key).where("state", "=", "pending").where("action", "=", "update").execute();
+  }
 }

@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 import { beforeEach, describe, expect, it } from "vitest";
 import { normalizeRecord } from "../../shared/records/normalize-record";
-import { zoningRecord } from "../../shared/tests/fixtures";
+import { permitRecord, zoningRecord } from "../../shared/tests/fixtures";
 import { withActor } from "../src/db/actor";
 import { markChanged, trackPublic } from "../src/publish/state";
 import { linkFiling, setFilingDeleted, unlinkFiling, updateFilingRecord } from "../src/store/edit";
@@ -100,6 +100,31 @@ describe("links and filing edits", () => {
     await expect(drew((q) => updateFilingRecord(q, f, { ward: "42" }))).rejects.toMatchObject({ status: 422 });
     await expect(drew((q) => updateFilingRecord(q, f, { address: "12 Gotham Blvd" }))).rejects.toMatchObject({ status: 422 });
     await expect(drew((q) => updateFilingRecord(q, f, { kind: "permit" }))).rejects.toMatchObject({ status: 422 });
+  });
+});
+
+describe("link roles and unit sources", () => {
+  it("a permit reclassified from early signal to qualifying updates its link role", async () => {
+    const f = await drew(async (q) => {
+      await createProjectRow(q, project());
+      const id = await writeFiling(q, normalizeRecord(permitRecord({ classification: "early_signal" })).record, { sourceHash: null });
+      await linkFiling(q, "111-w-monroe", id, "drew", "manual");
+      return id;
+    });
+    await drew((q) => updateFilingRecord(q, f, { classification: "qualifying_20plus" }));
+    expect((await db.selectFrom("project_filings").select("role").executeTakeFirstOrThrow()).role).toBe("permit");
+  });
+
+  it("records which filing a project's unit count came from, and rejects unknown filings", async () => {
+    const f = await drew(async (q) => {
+      await createProjectRow(q, project());
+      return writeFiling(q, normalizeRecord(zoningRecord()).record, { sourceHash: null });
+    });
+    await drew((q) => updateProjectRow(q, "111-w-monroe", { units: 345, units_source_filing_id: f }));
+    expect((await db.selectFrom("projects").select("units_source_filing_id").executeTakeFirstOrThrow()).units_source_filing_id).toBe(f);
+    await expect(drew((q) => updateProjectRow(q, "111-w-monroe", { units_source_filing_id: 9999 }))).rejects.toMatchObject({ status: 422 });
+    await drew((q) => updateProjectRow(q, "111-w-monroe", { units_source_filing_id: null }));
+    expect((await db.selectFrom("projects").select("units_source_filing_id").executeTakeFirstOrThrow()).units_source_filing_id).toBeNull();
   });
 });
 

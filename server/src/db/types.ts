@@ -31,7 +31,7 @@ export interface DB {
     community_area: number | null; ward: number | null; units: number | null; status: string | null;
     event_date: string | null; in_target: boolean; flag: string | null; notes: string | null; source_url: string | null;
     attributes: Jsonb<Record<string, unknown>>; field_sources: Jsonb<Record<string, string>>;
-    content_hash: string; last_source_hash: string | null;
+    content_hash: string; last_source_hash: string | null; source_item_id: number | null;
     created_at: Generated<Date>; updated_at: Generated<Date>; deleted_at: TsNull;
   };
   projects: {

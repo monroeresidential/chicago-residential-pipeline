@@ -5,6 +5,7 @@ import { withActor } from "../src/db/actor";
 import { INTAKE_LOCK } from "../src/db/locks";
 import { bulkReview, approveItem, rejectItem } from "../src/review/review";
 import { getQueueItem, listQueue, queueSummary } from "../src/review/queue";
+import { setFilingDeleted } from "../src/store/edit";
 import { loadFilingRecord } from "../src/store/filings";
 import { makeApp, queueRecords } from "./helpers/app";
 import { insertProject } from "./helpers/fixtures";
@@ -101,6 +102,29 @@ describe("coordination with intake", () => {
   });
 });
 
+describe("stale updates", () => {
+  it("an update queued before its filing was deleted cannot be approved and is superseded", async () => {
+    const [first] = await queueRecords(ctx, [zoningRecord()]);
+    const { filing_id } = await approveItem(ctx.db, "drew", first!);
+    const [upd] = await queueRecords(ctx, [zoningRecord({ status: "Final - Passed (2026-06-17)" })]);
+    await withActor(ctx.db, "drew", "admin_edit", (q) => setFilingDeleted(q, filing_id, true));
+    expect((await getQueueItem(ctx.db, upd!)).state).toBe("superseded");
+    await expect(approveItem(ctx.db, "drew", upd!)).rejects.toMatchObject({ status: 409 });
+    const f = await ctx.db.selectFrom("filings").select("deleted_at").where("id", "=", filing_id).executeTakeFirstOrThrow();
+    expect(f.deleted_at).not.toBeNull();
+  });
+
+  it("a create item queued after deletion still restores the filing when approved", async () => {
+    const [first] = await queueRecords(ctx, [zoningRecord()]);
+    const { filing_id } = await approveItem(ctx.db, "drew", first!);
+    await withActor(ctx.db, "drew", "admin_edit", (q) => setFilingDeleted(q, filing_id, true));
+    const [again] = await queueRecords(ctx, [zoningRecord({ units: 400 })]);
+    await approveItem(ctx.db, "drew", again!);
+    const f = await ctx.db.selectFrom("filings").select("deleted_at").where("id", "=", filing_id).executeTakeFirstOrThrow();
+    expect(f.deleted_at).toBeNull();
+  });
+});
+
 describe("reject", () => {
   it("needs a reason, sticks for identical data, reopens for changed data", async () => {
     const id = await one(zoningRecord());
@@ -144,6 +168,11 @@ describe("bulk review", () => {
     await bulkReview(ctx.db, "drew", { filter: {}, action: "approve", link_strong: true, confirm: preview.confirm });
     const links = await ctx.db.selectFrom("project_filings").innerJoin("filings", "filings.id", "project_filings.filing_id").select("filings.kind").execute();
     expect(links.map((l) => l.kind).sort()).toEqual(["permit", "zoning_matter"]);
+  });
+
+  it("bulk approve refuses a filter for items with blocking issues", async () => {
+    await queueRecords(ctx, [zbaRecord(), zbaRecord({ case_no: "3-26-Z", address: "12 Gotham Blvd" })]);
+    await expect(bulkReview(ctx.db, "drew", { filter: { has_issues: true }, action: "approve" })).rejects.toMatchObject({ status: 400 });
   });
 
   it("bulk reject requires a reason", async () => {

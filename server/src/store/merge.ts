@@ -11,15 +11,22 @@ import { resolveAliases } from "./shared-values";
  * "what Grok last sent" must be recomputed the same way, or an overridden filing would re-queue.
  */
 async function refreshSourceHash(q: Db, filingId: number): Promise<void> {
-  const f = await q.selectFrom("filings").select(["kind", "source_key", "last_source_hash"]).where("id", "=", filingId).executeTakeFirstOrThrow();
-  if (!f.last_source_hash) return;
-  const item = await q.selectFrom("queue_items").select(["proposed", "normalization_issues"])
-    .where("kind", "=", f.kind).where("source_key", "=", f.source_key).where("state", "=", "approved")
-    .where("content_hash", "=", f.last_source_hash).orderBy("id", "desc").limit(1).executeTakeFirst();
+  const f = await q.selectFrom("filings").select(["last_source_hash", "source_item_id"]).where("id", "=", filingId).executeTakeFirstOrThrow();
+  if (!f.source_item_id) return;
+  const item = await q.selectFrom("queue_items").select(["proposed", "normalization_issues"]).where("id", "=", f.source_item_id).executeTakeFirst();
   if (!item) return;
   const record = await resolveAliases(q, item.proposed as NormalizedRecord);
   const hash = contentHash(record, item.normalization_issues as Issue[]);
   if (hash !== f.last_source_hash) await q.updateTable("filings").set({ last_source_hash: hash }).where("id", "=", filingId).execute();
+}
+
+/** Renumbers a filing's address positions 0..n (keeping order) and points primary_address_id at position 0. */
+async function compactAddresses(q: Db, filingId: number): Promise<void> {
+  const rows = await q.selectFrom("filing_addresses").select(["address_id", "position"]).where("filing_id", "=", filingId).orderBy("position").execute();
+  for (const [i, r] of rows.entries()) {
+    if (r.position !== i) await q.updateTable("filing_addresses").set({ position: i }).where("filing_id", "=", filingId).where("address_id", "=", r.address_id).execute();
+  }
+  await q.updateTable("filings").set({ primary_address_id: rows[0]?.address_id ?? null }).where("id", "=", filingId).execute();
 }
 
 export async function mergeValues(q: Db, type: "organization" | "address", fromId: number, intoId: number): Promise<{ affected_filings: number }> {
@@ -45,8 +52,12 @@ export async function mergeValues(q: Db, type: "organization" | "address", fromI
   } else {
     for (const l of await q.selectFrom("filing_addresses").selectAll().where("address_id", "=", fromId).execute()) {
       affected.add(l.filing_id);
-      const dup = await q.selectFrom("filing_addresses").select("filing_id").where("filing_id", "=", l.filing_id).where("address_id", "=", intoId).executeTakeFirst();
-      if (dup) await q.deleteFrom("filing_addresses").where("filing_id", "=", l.filing_id).where("address_id", "=", fromId).execute();
+      const dup = await q.selectFrom("filing_addresses").select(["filing_id", "position"]).where("filing_id", "=", l.filing_id).where("address_id", "=", intoId).executeTakeFirst();
+      if (dup) {
+        // Both spellings were listed: the survivor takes the earlier of the two positions.
+        await q.deleteFrom("filing_addresses").where("filing_id", "=", l.filing_id).where("address_id", "=", fromId).execute();
+        if (l.position < dup.position) await q.updateTable("filing_addresses").set({ position: l.position }).where("filing_id", "=", l.filing_id).where("address_id", "=", intoId).execute();
+      }
       else await q.updateTable("filing_addresses").set({ address_id: intoId }).where("filing_id", "=", l.filing_id).where("address_id", "=", fromId).execute();
     }
     for (const f of await q.selectFrom("filings").select("id").where("primary_address_id", "=", fromId).execute()) affected.add(f.id);
@@ -62,6 +73,7 @@ export async function mergeValues(q: Db, type: "organization" | "address", fromI
     await q.updateTable("addresses").set({ merged_into_id: intoId, deleted_at: new Date() }).where("id", "=", fromId).execute();
   }
   for (const filingId of affected) {
+    if (type === "address") await compactAddresses(q, filingId);
     await refreshFilingHash(q, filingId);
     await refreshSourceHash(q, filingId);
   }

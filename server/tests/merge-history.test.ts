@@ -7,7 +7,8 @@ import { loadFilingRecord } from "../src/store/filings";
 import { listHistory, revertTo } from "../src/store/history";
 import { mergeValues } from "../src/store/merge";
 import { createProjectRow, updateProjectRow } from "../src/store/projects";
-import { makeApp, queueRecords } from "./helpers/app";
+import { createOps } from "../src/ops";
+import { makeApp, queueRecords, testConfig } from "./helpers/app";
 
 let ctx: Awaited<ReturnType<typeof makeApp>>;
 beforeEach(async () => { ctx = await makeApp(); });
@@ -72,6 +73,46 @@ describe("merge", () => {
     const typo = await orgId("4645 N0RTH CLARK LLC");
     await withActor(ctx.db, "drew", `merge:organization:${typo}->${keep}`, (q) => mergeValues(q, "organization", typo, keep));
     expect(await queueRecords(ctx, [zbaRecord({ case_no: "2-26-Z", applicant: "4645 N0RTH CLARK LLC", units: 40 })])).toEqual([null]);
+  });
+
+  it("merging the primary address into a later one keeps that address primary and first", async () => {
+    const rec = zoningRecord({ address: "100 W Monroe St", additional_addresses: ["200 W Monroe St", "300 W Monroe St"] });
+    const [f] = await approveAll([rec]);
+    const ids = await ctx.db.selectFrom("addresses").select(["id", "number_from"]).execute();
+    const id = (n: number) => ids.find((r) => r.number_from === n)!.id;
+    await withActor(ctx.db, "drew", "merge:address", (q) => mergeValues(q, "address", id(100), id(300)));
+    const rows = await ctx.db.selectFrom("filing_addresses").select(["address_id", "position"]).where("filing_id", "=", f!).orderBy("position").execute();
+    expect(rows.map((r) => r.address_id)).toEqual([id(300), id(200)]);
+    expect(rows.map((r) => r.position)).toEqual([0, 1]);
+    const fil = await ctx.db.selectFrom("filings").select("primary_address_id").where("id", "=", f!).executeTakeFirstOrThrow();
+    expect(fil.primary_address_id).toBe(id(300));
+  });
+
+  it("opposing merges at the same time cannot create an alias cycle", async () => {
+    await approveAll([zbaRecord(), zbaRecord({ case_no: "2-26-Z", applicant: "4645 N0RTH CLARK LLC" })]);
+    const a = await orgId("4645 NORTH CLARK LLC");
+    const b = await orgId("4645 N0RTH CLARK LLC");
+    const ops = createOps({ db: ctx.db, config: testConfig });
+    const me = { sub: "drew", role: "editor" as const, jti: "x" };
+    const results = await Promise.allSettled([ops.merge(me, "organization", a, b), ops.merge(me, "organization", b, a)]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rows = await ctx.db.selectFrom("organizations").select(["id", "merged_into_id"]).where("id", "in", [a, b]).execute();
+    expect(rows.filter((r) => r.merged_into_id !== null)).toHaveLength(1);
+  });
+
+  it("source-hash tracking survives two successive merges", async () => {
+    await approveAll([zbaRecord(), zbaRecord({ case_no: "5-26-Z", applicant: "Ximena Castro" })]);
+    const original = zbaRecord({ case_no: "2-26-Z", applicant: "4645 N0RTH CLARK LLC", attorney: "XIMENA CASTR0", units: 40 });
+    const [id] = await queueRecords(ctx, [original]);
+    await approveItem(ctx.db, "drew", id!, { overrides: { units: 4 } });
+    const merge = async (fromKey: string, intoKey: string) => {
+      const from = await orgId(fromKey);
+      const into = await orgId(intoKey);
+      await withActor(ctx.db, "drew", `merge:organization:${from}->${into}`, (q) => mergeValues(q, "organization", from, into));
+    };
+    await merge("4645 N0RTH CLARK LLC", "4645 NORTH CLARK LLC");
+    await merge("XIMENA CASTR0", "XIMENA CASTRO");
+    expect(await queueRecords(ctx, [original])).toEqual([null]);
   });
 
   it("refuses to merge a row into itself", async () => {

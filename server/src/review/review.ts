@@ -33,7 +33,7 @@ export interface ApproveResult { queue_item_id: number; filing_id: number; linke
 export async function approveItem(db: Db, reviewer: string, id: number, rawOpts: ApproveOptions = {}): Promise<ApproveResult> {
   const opts = ApproveOptionsSchema.parse(rawOpts);
   if (opts.link_to && opts.create_project) throw new HttpError(400, "use link_to or create_project, not both");
-  return withActor(db, reviewer, `queue_item:${id}`, async (q) => {
+  const result = await withActor(db, reviewer, `queue_item:${id}`, async (q): Promise<ApproveResult | { stale: true }> => {
     await sql`select pg_advisory_xact_lock(${INTAKE_LOCK})`.execute(q); // never interleave with a submission
     const item = await q.selectFrom("queue_items").selectAll().where("id", "=", id).forUpdate().executeTakeFirst();
     if (!item) throw new HttpError(404, `no queue item ${id}`);
@@ -53,7 +53,14 @@ export async function approveItem(db: Db, reviewer: string, id: number, rawOpts:
     const blocking = issues.filter((i) => i.blocking);
     if (blocking.length) throw new HttpError(422, "fix these values with overrides before approving", blocking);
 
-    const filingId = await writeFiling(q, record, { sourceHash: item.content_hash });
+    if (item.action === "update") {
+      const f = await q.selectFrom("filings").select("deleted_at").where("kind", "=", item.kind).where("source_key", "=", item.source_key).executeTakeFirst();
+      if (!f || f.deleted_at) {
+        await q.updateTable("queue_items").set({ state: "superseded" }).where("id", "=", id).execute();
+        return { stale: true }; // committed first, then reported (a throw here would roll the supersede back)
+      }
+    }
+    const filingId = await writeFiling(q, record, { sourceHash: item.content_hash, sourceItemId: id });
     let projectId: string | null = opts.link_to ?? null;
     let reason = "linked in review";
 
@@ -91,6 +98,8 @@ export async function approveItem(db: Db, reviewer: string, id: number, rawOpts:
     await markChanged(q, { projectIds: projectId ? [projectId] : [], filingIds: [filingId] });
     return { queue_item_id: id, filing_id: filingId, linked_project_id: projectId, status_change: statusChange };
   });
+  if ("stale" in result) throw new HttpError(409, `queue item ${id} updates a filing that has since been deleted; it was superseded`);
+  return result;
 }
 
 export async function rejectItem(db: Db, reviewer: string, id: number, reason: string): Promise<void> {
@@ -118,6 +127,9 @@ export async function bulkReview(db: Db, reviewer: string, raw: BulkReviewReques
   if (req.action === "reject" && !req.reason?.trim()) throw new HttpError(400, "a reason is required to reject");
 
   if (!req.confirm) {
+    if (req.action === "approve" && req.filter.has_issues === true) {
+      throw new HttpError(400, "items with blocking issues cannot be bulk-approved; fix them with overrides one at a time");
+    }
     const filter = { ...req.filter, state: "pending" as const, ...(req.action === "approve" ? { has_issues: false } : {}) };
     const ids = (await filtered(db, filter).select("id").orderBy("id").execute()).map((r) => r.id);
     const code = randomBytes(5).toString("hex");

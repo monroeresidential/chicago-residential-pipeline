@@ -12,7 +12,7 @@ export function filingRole(kind: Kind, attributes: Record<string, unknown>): "zo
   return kind === "zoning_matter" ? "zoning" : "hearing";
 }
 
-export async function writeFiling(q: Db, record: NormalizedRecord, opts: { sourceHash: string | null }): Promise<number> {
+export async function writeFiling(q: Db, record: NormalizedRecord, opts: { sourceHash: string | null; sourceItemId?: number }): Promise<number> {
   const addressIds: number[] = [];
   for (const [i, a] of record.addresses.entries()) {
     const id = await upsertAddress(q, a, i === 0 ? record.point : null);
@@ -30,9 +30,13 @@ export async function writeFiling(q: Db, record: NormalizedRecord, opts: { sourc
   let filingId: number;
   if (existing) {
     filingId = existing.id;
-    await q.updateTable("filings").set({ ...values, last_source_hash: opts.sourceHash ?? existing.last_source_hash }).where("id", "=", filingId).execute();
+    await q.updateTable("filings").set({
+      ...values,
+      last_source_hash: opts.sourceHash ?? existing.last_source_hash,
+      ...(opts.sourceItemId ? { source_item_id: opts.sourceItemId } : {}),
+    }).where("id", "=", filingId).execute();
   } else {
-    filingId = (await q.insertInto("filings").values({ ...values, last_source_hash: opts.sourceHash }).returning("id").executeTakeFirstOrThrow()).id;
+    filingId = (await q.insertInto("filings").values({ ...values, last_source_hash: opts.sourceHash, source_item_id: opts.sourceItemId ?? null }).returning("id").executeTakeFirstOrThrow()).id;
   }
 
   // addresses (position 0 = primary)
@@ -82,6 +86,10 @@ export async function writeFiling(q: Db, record: NormalizedRecord, opts: { sourc
     await q.insertInto("filing_organizations").values({ filing_id: filingId, organization_id: o.id, role: o.role })
       .onConflict((oc) => oc.columns(["filing_id", "organization_id", "role"]).doNothing()).execute();
   }
+
+  // A reclassified filing (e.g. early signal → qualifying permit) keeps its project links' roles in step.
+  await q.updateTable("project_filings").set({ role: filingRole(record.kind, record.attributes) })
+    .where("filing_id", "=", filingId).where("role", "<>", filingRole(record.kind, record.attributes)).execute();
 
   await refreshFilingHash(q, filingId);
   return filingId;

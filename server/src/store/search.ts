@@ -13,7 +13,6 @@ export const FilingSearchSchema = z.strictObject({
   kind: z.enum(KINDS).optional(),
   in_target: z.boolean().optional(),
   linked: z.boolean().optional(),
-  include_deleted: z.boolean().default(false),
   limit: z.number().int().min(1).max(200).default(50),
 });
 export type FilingSearch = z.input<typeof FilingSearchSchema>;
@@ -30,7 +29,7 @@ export async function searchFilings(q: Db, raw: FilingSearch): Promise<FilingSum
     .select(["f.id", "f.kind", "f.source_key", "f.status", "f.event_date", "f.in_target", "f.deleted_at",
       "a.number_from", "a.number_to", "a.predir", "a.street_name", "a.suffix", "a.zip",
       sql<string[]>`coalesce((select array_agg(pf.project_id order by pf.project_id) from project_filings pf where pf.filing_id = f.id), '{}')`.as("linked_projects")])
-    .$if(!s.include_deleted, (b) => b.where("f.deleted_at", "is", null))
+    .where("f.deleted_at", "is", null) // deleted filings are reachable only through history and restore
     .$if(s.kind !== undefined, (b) => b.where("f.kind", "=", s.kind!))
     .$if(s.in_target !== undefined, (b) => b.where("f.in_target", "=", s.in_target!))
     .$if(s.linked !== undefined, (b) => b.where(sql<boolean>`exists (select 1 from project_filings pf where pf.filing_id = f.id) = ${s.linked!}`))
@@ -61,8 +60,9 @@ export async function searchFilings(q: Db, raw: FilingSearch): Promise<FilingSum
 }
 
 export async function getFiling(q: Db, id: number) {
-  const row = await q.selectFrom("filings").select(["id", "deleted_at", "content_hash", "created_at", "updated_at"]).where("id", "=", id).executeTakeFirst();
-  if (!row) throw new HttpError(404, `no filing ${id}`);
+  const row = await q.selectFrom("filings").select(["id", "content_hash", "created_at", "updated_at"])
+    .where("id", "=", id).where("deleted_at", "is", null).executeTakeFirst();
+  if (!row) throw new HttpError(404, `no live filing ${id}`);
   const record = await loadFilingRecord(q, id);
   const projects = await q.selectFrom("project_filings").select(["project_id", "role", "reason", "linked_by", "linked_at"]).where("filing_id", "=", id).execute();
   return { ...row, addresses: record.addresses.map(formatAddressDisplay), record, projects };

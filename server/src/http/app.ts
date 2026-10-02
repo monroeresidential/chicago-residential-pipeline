@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { authenticate, type AppEnv } from "../auth/middleware";
@@ -22,8 +23,14 @@ export function createApp(deps: AppDeps & { log?: (line: string) => void }): Hon
     if (err instanceof HttpError) {
       return c.json({ error: err.message, ...(err.details === undefined ? {} : { details: err.details }) }, err.status as ContentfulStatusCode);
     }
-    console.error(JSON.stringify({ t: new Date().toISOString(), level: "error", path: c.req.path, message: (err as Error).message }));
-    return c.json({ error: "internal error" }, 500);
+    // Never log the message: database errors can quote submitted values. The id ties the response to this line.
+    const errorId = randomUUID();
+    const e = err as Error & { code?: unknown };
+    console.error(JSON.stringify({
+      t: new Date().toISOString(), level: "error", error_id: errorId, path: c.req.path, method: c.req.method,
+      error: e.name, ...(typeof e.code === "string" ? { code: e.code } : {}),
+    }));
+    return c.json({ error: "internal error", error_id: errorId }, 500);
   });
   app.notFound((c) => c.json({ error: "not found" }, 404));
   registerPublicRoutes(app, deps, ops);

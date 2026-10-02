@@ -90,6 +90,14 @@ describe("publishing", () => {
     expect((await db.selectFrom("site_state").select("dirty").executeTakeFirstOrThrow()).dirty).toBe(true);
   });
 
+  it("publishNow keeps the pending rebuild when the hook fails", async () => {
+    await changeAt("2026-10-02T15:00:00Z");
+    await expect(publishNow(db, testConfig, new Date("2026-10-02T15:01:00Z"), async () => { throw new Error("hook down"); })).rejects.toThrow("hook down");
+    const st = await db.selectFrom("site_state").selectAll().executeTakeFirstOrThrow();
+    expect(st.dirty).toBe(true);
+    expect(st.last_published_at).toBeNull();
+  });
+
   it("publishNow triggers immediately", async () => {
     const trigger = vi.fn(async () => "sent" as const);
     expect(await publishNow(db, testConfig, new Date("2026-10-02T15:00:00Z"), trigger)).toBe("sent");

@@ -86,7 +86,38 @@ describe("editor flow over REST", () => {
   });
 });
 
+describe("deleted filings", () => {
+  it("are hidden from ordinary editor reads and search", async () => {
+    const [id] = await queueRecords(ctx, [zbaRecord()]);
+    const approved = (await (await req("POST", `/v1/queue/${id}/approve`, ctx.drew, {})).json()) as any;
+    await req("DELETE", `/v1/filings/${approved.filing_id}`, ctx.drew);
+    expect((await req("GET", `/v1/filings/${approved.filing_id}`, ctx.drew)).status).toBe(404);
+    expect((await req("GET", `/v1/filings/${approved.filing_id}/candidates`, ctx.drew)).status).toBe(404);
+    expect((await (await req("GET", "/v1/filings?q=420-24", ctx.drew)).json()) as any[]).toEqual([]);
+    expect((await req("GET", "/v1/filings?include_deleted=true", ctx.drew)).status).toBe(400);
+    expect((await req("POST", `/v1/filings/${approved.filing_id}/restore`, ctx.drew)).status).toBe(200);
+  });
+});
+
 describe("logging", () => {
+  it("logs unexpected errors without their message", async () => {
+    const lines: string[] = [];
+    const orig = console.error;
+    console.error = (l: string) => { lines.push(String(l)); };
+    try {
+      const app = createApp({ db: ctx.db, config: testConfig, log: () => {} });
+      app.get("/boom", () => { throw new Error("value 123-secret-input"); });
+      const r = await app.request("/boom");
+      expect(r.status).toBe(500);
+      expect(((await r.json()) as any).error_id).toMatch(/^[0-9a-f-]{36}$/);
+    } finally {
+      console.error = orig;
+    }
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).not.toContain("secret");
+    expect(JSON.parse(lines[0]!)).toMatchObject({ level: "error", path: "/boom", error: "Error" });
+  });
+
   it("logs one line per request without tokens or bodies", async () => {
     const lines: string[] = [];
     const app = createApp({ db: ctx.db, config: testConfig, log: (l) => lines.push(l) });
