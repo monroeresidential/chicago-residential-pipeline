@@ -56,7 +56,7 @@ export interface DB {
     id: Generated<number>; submission_id: number; record_index: number; kind: string; source_key: string; action: string;
     proposed: Jsonb; content_hash: string; diff: Jsonb; normalization_issues: Jsonb; suggestions: Jsonb;
     in_target: boolean; has_flag: boolean; has_blocking_issues: boolean; top_strength: string | null;
-    address_display: string | null; state: Generated<string>; reviewed_by: string | null; reviewed_at: TsNull;
+    address_display: string | null; base_hash: string | null; state: Generated<string>; reviewed_by: string | null; reviewed_at: TsNull;
     review_note: string | null; created_at: Generated<Date>;
   };
   bulk_previews: {

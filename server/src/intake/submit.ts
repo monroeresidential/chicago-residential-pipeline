@@ -120,7 +120,7 @@ async function processRecord(q: Db, submissionId: number, index: number, raw: un
   const duplicates = await suggestDuplicates(q, record);
   const item = await q.insertInto("queue_items").values({
     submission_id: submissionId, record_index: index, kind: record.kind, source_key: record.source_key,
-    action: live ? "update" : "create", proposed: JSON.stringify(record), content_hash: hash,
+    action: live ? "update" : "create", proposed: JSON.stringify(record), content_hash: hash, base_hash: live?.content_hash ?? null,
     diff: JSON.stringify(diff), normalization_issues: JSON.stringify(issues),
     suggestions: JSON.stringify({ projects, duplicates }), in_target: record.in_target,
     has_flag: Boolean(record.flag || record.attributes.unit_flag), has_blocking_issues: issues.some((i) => i.blocking),

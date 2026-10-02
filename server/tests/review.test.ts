@@ -5,7 +5,7 @@ import { withActor } from "../src/db/actor";
 import { INTAKE_LOCK } from "../src/db/locks";
 import { bulkReview, approveItem, rejectItem } from "../src/review/review";
 import { getQueueItem, listQueue, queueSummary } from "../src/review/queue";
-import { setFilingDeleted } from "../src/store/edit";
+import { setFilingDeleted, updateFilingRecord } from "../src/store/edit";
 import { loadFilingRecord } from "../src/store/filings";
 import { makeApp, queueRecords } from "./helpers/app";
 import { insertProject } from "./helpers/fixtures";
@@ -109,6 +109,31 @@ describe("coordination with intake", () => {
 });
 
 describe("stale updates", () => {
+  it("an update whose filing was edited since it was queued must be reviewed again", async () => {
+    const [first] = await queueRecords(ctx, [zoningRecord()]);
+    const { filing_id } = await approveItem(ctx.db, "drew", first!);
+    const [upd] = await queueRecords(ctx, [zoningRecord({ status: "Final - Passed (2026-06-17)" })]);
+    await withActor(ctx.db, "drew", "admin_edit", (q) => updateFilingRecord(q, filing_id, { units: 300 }));
+    await expect(approveItem(ctx.db, "drew", upd!)).rejects.toMatchObject({ status: 409 });
+    const item = await getQueueItem(ctx.db, upd!);
+    expect(item.state).toBe("pending");
+    expect(Object.keys(item.diff as object).sort()).toEqual(["status", "units"]);
+    await approveItem(ctx.db, "drew", upd!);
+    expect((await loadFilingRecord(ctx.db, filing_id)).status).toBe("Final - Passed (2026-06-17)");
+  });
+
+  it("bulk approval skips updates whose filing changed after the preview", async () => {
+    const [first] = await queueRecords(ctx, [zoningRecord()]);
+    const { filing_id } = await approveItem(ctx.db, "drew", first!);
+    await queueRecords(ctx, [zoningRecord({ status: "Final - Passed (2026-06-17)" })]);
+    const preview = await bulkReview(ctx.db, "drew", { filter: {}, action: "approve" });
+    if (!preview.preview) throw new Error("expected a preview");
+    await withActor(ctx.db, "drew", "admin_edit", (q) => updateFilingRecord(q, filing_id, { units: 300 }));
+    const result = await bulkReview(ctx.db, "drew", { filter: {}, action: "approve", confirm: preview.confirm });
+    expect(result).toMatchObject({ approved: 0 });
+    expect((await loadFilingRecord(ctx.db, filing_id)).units).toBe(300);
+  });
+
   it("an update queued before its filing was deleted cannot be approved and is superseded", async () => {
     const [first] = await queueRecords(ctx, [zoningRecord()]);
     const { filing_id } = await approveItem(ctx.db, "drew", first!);

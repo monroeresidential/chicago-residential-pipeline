@@ -3,6 +3,7 @@ import { sql } from "kysely";
 import { z } from "zod";
 import type { Status } from "../../../shared/constants";
 import { formatAddressDisplay } from "../../../shared/normalize/address";
+import { diffRecords } from "../../../shared/records/diff";
 import { contentHash } from "../../../shared/records/hash";
 import { normalizeRecord } from "../../../shared/records/normalize-record";
 import type { Issue, NormalizedRecord, WireRecord } from "../../../shared/records/types";
@@ -34,7 +35,7 @@ export interface ApproveResult { queue_item_id: number; filing_id: number; linke
 export async function approveItem(db: Db, reviewer: string, id: number, rawOpts: ApproveOptions = {}): Promise<ApproveResult> {
   const opts = ApproveOptionsSchema.parse(rawOpts);
   if (opts.link_to && opts.create_project) throw new HttpError(400, "use link_to or create_project, not both");
-  const result = await withActor(db, reviewer, `queue_item:${id}`, async (q): Promise<ApproveResult | { stale: true }> => {
+  const result = await withActor(db, reviewer, `queue_item:${id}`, async (q): Promise<ApproveResult | { stale: "deleted" | "changed" }> => {
     await sql`select pg_advisory_xact_lock(${INTAKE_LOCK})`.execute(q); // never interleave with a submission
     const item = await q.selectFrom("queue_items").selectAll().where("id", "=", id).forUpdate().executeTakeFirst();
     if (!item) throw new HttpError(404, `no queue item ${id}`);
@@ -58,10 +59,17 @@ export async function approveItem(db: Db, reviewer: string, id: number, rawOpts:
     if (blocking.length) throw new HttpError(422, "fix these values with overrides before approving", blocking);
 
     if (item.action === "update") {
-      const f = await q.selectFrom("filings").select("deleted_at").where("kind", "=", item.kind).where("source_key", "=", item.source_key).executeTakeFirst();
+      const f = await q.selectFrom("filings").select(["id", "deleted_at", "content_hash"]).where("kind", "=", item.kind).where("source_key", "=", item.source_key).executeTakeFirst();
       if (!f || f.deleted_at) {
         await q.updateTable("queue_items").set({ state: "superseded" }).where("id", "=", id).execute();
-        return { stale: true }; // committed first, then reported (a throw here would roll the supersede back)
+        return { stale: "deleted" }; // committed first, then reported (a throw here would roll the supersede back)
+      }
+      if (item.base_hash && f.content_hash !== item.base_hash) {
+        // The filing was edited or reverted after this item was queued: approving the whole proposal would undo that.
+        // Refresh the diff against the current filing and send it back for review.
+        const diff = diffRecords(await loadFilingRecord(q, f.id), item.proposed as NormalizedRecord);
+        await q.updateTable("queue_items").set({ diff: JSON.stringify(diff), base_hash: f.content_hash }).where("id", "=", id).execute();
+        return { stale: "changed" };
       }
     }
     // What Grok sent, re-resolved against today's merges (the item may have been queued before one).
@@ -104,7 +112,11 @@ export async function approveItem(db: Db, reviewer: string, id: number, rawOpts:
     await markChanged(q, { projectIds: projectId ? [projectId] : [], filingIds: [filingId] });
     return { queue_item_id: id, filing_id: filingId, linked_project_id: projectId, status_change: statusChange };
   });
-  if ("stale" in result) throw new HttpError(409, `queue item ${id} updates a filing that has since been deleted; it was superseded`);
+  if ("stale" in result) {
+    throw new HttpError(409, result.stale === "deleted"
+      ? `queue item ${id} updates a filing that has since been deleted; it was superseded`
+      : `the filing changed after queue item ${id} was queued; its diff was refreshed — review it again`);
+  }
   return result;
 }
 
