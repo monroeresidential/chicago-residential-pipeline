@@ -93,6 +93,14 @@ describe("POST /v1/submissions", () => {
     expect((await pending()).length).toBe(1);
   });
 
+  it("broken Unicode (lone surrogates) in a value or key fails only its own record", async () => {
+    const bad = { ...zbaRecord(), data: { ...zbaRecord().data, notes: "bad \uD800 text", ["k\uDC00"]: "x" } };
+    const { status, body } = await json(await submit([bad, permitRecord()]));
+    expect(status).toBe(202);
+    expect(body.results.map((r: any) => r.outcome)).toEqual(["invalid", "queued_create"]);
+    expect(body.results[0].errors[0].message).toMatch(/Unicode|NUL/);
+  });
+
   it("a NUL character fails only its own record", async () => {
     const { status, body } = await json(await submit([zbaRecord({ notes: "bad\u0000ocr" }), permitRecord()]));
     expect(status).toBe(202);

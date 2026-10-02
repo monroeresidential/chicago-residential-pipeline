@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { permitRecord, zbaRecord, zoningRecord } from "../../shared/tests/fixtures";
+import { sql } from "kysely";
 import { withActor } from "../src/db/actor";
+import { INTAKE_LOCK } from "../src/db/locks";
 import { bulkReview, approveItem, rejectItem } from "../src/review/review";
 import { getQueueItem, listQueue, queueSummary } from "../src/review/queue";
 import { loadFilingRecord } from "../src/store/filings";
@@ -73,6 +75,29 @@ describe("approve", () => {
     const id = await one(permitRecord());
     await approveItem(ctx.db, "drew", id);
     await expect(approveItem(ctx.db, "drew", id)).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe("coordination with intake", () => {
+  it("an approval waits while a submission holds the intake lock", async () => {
+    const id = await one(permitRecord());
+    let release!: () => void;
+    const held = new Promise<void>((r) => { release = r; });
+    const holder = ctx.db.transaction().execute(async (trx) => {
+      await sql`select pg_advisory_xact_lock(${INTAKE_LOCK})`.execute(trx);
+      await held;
+    });
+    let done = false;
+    const approval = approveItem(ctx.db, "drew", id).then(() => { done = true; });
+    try {
+      await new Promise((r) => setTimeout(r, 300));
+      expect(done).toBe(false);
+    } finally {
+      release();
+      await holder;
+      await approval;
+    }
+    expect(done).toBe(true);
   });
 });
 

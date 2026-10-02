@@ -1,10 +1,12 @@
 import { randomBytes } from "node:crypto";
+import { sql } from "kysely";
 import { z } from "zod";
 import type { Status } from "../../../shared/constants";
 import { formatAddressDisplay } from "../../../shared/normalize/address";
 import { normalizeRecord } from "../../../shared/records/normalize-record";
 import type { Issue, NormalizedRecord, WireRecord } from "../../../shared/records/types";
 import { withActor } from "../db/actor";
+import { INTAKE_LOCK } from "../db/locks";
 import type { Db } from "../db/client";
 import { HttpError } from "../errors";
 import { validateRecord } from "../intake/submit";
@@ -32,6 +34,7 @@ export async function approveItem(db: Db, reviewer: string, id: number, rawOpts:
   const opts = ApproveOptionsSchema.parse(rawOpts);
   if (opts.link_to && opts.create_project) throw new HttpError(400, "use link_to or create_project, not both");
   return withActor(db, reviewer, `queue_item:${id}`, async (q) => {
+    await sql`select pg_advisory_xact_lock(${INTAKE_LOCK})`.execute(q); // never interleave with a submission
     const item = await q.selectFrom("queue_items").selectAll().where("id", "=", id).forUpdate().executeTakeFirst();
     if (!item) throw new HttpError(404, `no queue item ${id}`);
     if (item.state !== "pending") throw new HttpError(409, `queue item ${id} is ${item.state}`);

@@ -10,6 +10,7 @@ import { DATA_SCHEMAS, MAX_RECORDS, RecordEnvelope, SubmissionEnvelope } from ".
 import type { WireRecord } from "../../../shared/records/types";
 import type { Principal } from "../auth/tokens";
 import type { Db } from "../db/client";
+import { INTAKE_LOCK } from "../db/locks";
 import { HttpError } from "../errors";
 import { suggestDuplicates } from "../match/duplicates";
 import { suggestProjects } from "../match/suggest";
@@ -32,9 +33,9 @@ const issuesOf = (e: z.ZodError, prefix = "") =>
 export function validateRecord(raw: unknown):
   | { ok: true; record: WireRecord }
   | { ok: false; source_key: string | null; errors: { path: string; message: string }[] } {
-  if (JSON.stringify(raw).includes("\\u0000")) {
+  if (hasBadText(raw)) {
     const sk = typeof (raw as { source_key?: unknown })?.source_key === "string" ? stripNul((raw as { source_key: string }).source_key) : null;
-    return { ok: false, source_key: sk, errors: [{ path: "", message: "record contains a NUL (\\u0000) character; remove it and resend" }] };
+    return { ok: false, source_key: sk, errors: [{ path: "", message: "record contains a NUL (\\u0000) character or broken Unicode (a lone surrogate); fix the text and resend" }] };
   }
   const env = RecordEnvelope.safeParse(raw);
   const sk = typeof (raw as { source_key?: unknown })?.source_key === "string" ? ((raw as { source_key: string }).source_key) : null;
@@ -55,9 +56,18 @@ export function validateRecord(raw: unknown):
   return { ok: true, record: { ...env.data, data: d } };
 }
 
-const SUBMISSION_LOCK = 727275;
 
-const stripNul = (v: string) => v.replace(/\u0000/g, "");
+/** Text Postgres can store: no NUL, no lone surrogates (replaced with U+FFFD). */
+const stripNul = (v: string) => v.replace(/\u0000/g, "").toWellFormed();
+const badText = (v: string) => v.includes("\u0000") || !v.isWellFormed();
+
+/** True if any string value or object key in v contains NUL or malformed Unicode. */
+function hasBadText(v: unknown): boolean {
+  if (typeof v === "string") return badText(v);
+  if (Array.isArray(v)) return v.some(hasBadText);
+  if (v && typeof v === "object") return Object.entries(v).some(([k, x]) => badText(k) || hasBadText(x));
+  return false;
+}
 
 /** jsonb rejects NUL characters (in values and keys); such records are reported invalid, and stored copies drop them. */
 function storableBody(body: unknown): string {
@@ -150,7 +160,7 @@ export async function processSubmission(
   try {
     return await db.transaction().execute(async (trx) => {
       // One submission at a time: chunks sent in parallel would otherwise not see each other's pending items.
-      await sql`select pg_advisory_xact_lock(${SUBMISSION_LOCK})`.execute(trx);
+      await sql`select pg_advisory_xact_lock(${INTAKE_LOCK})`.execute(trx);
       const inserted = await trx.insertInto("submissions").values({
         token_jti: principal.jti, idempotency_key: input.dryRun ? `dry-run:${randomUUID()}` : key, body_sha256: sha, body: storableBody(input.body),
       }).onConflict((oc) => oc.columns(["token_jti", "idempotency_key"]).doNothing()).returning("id").executeTakeFirst();
