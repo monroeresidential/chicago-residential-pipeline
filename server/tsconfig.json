@@ -12,5 +12,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src", "tests", "../shared", "../src/lib/parse-projects.ts", "../src/lib/geojson.ts", "../src/lib/stats.ts"]
+  "include": ["src", "tests", "../shared", "../src/lib/parse-projects.ts", "../src/lib/geojson.ts", "../src/lib/stats.ts", "../src/lib/data-meta.ts"]
 }
