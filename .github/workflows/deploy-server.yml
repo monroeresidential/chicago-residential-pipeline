@@ -2,7 +2,18 @@ name: Deploy server
 on:
   push:
     branches: [main]
-    paths: ["server/**", "shared/**", "src/lib/**", "data/projects.csv", ".github/workflows/deploy-server.yml", ".github/workflows/server-tests.yml"]
+    paths:
+      - "server/**"
+      - "shared/**"
+      - "src/lib/**"
+      - "data/projects.csv"
+      # build inputs of the API image
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".dockerignore"
+      - ".github/workflows/deploy-server.yml"
+      - ".github/workflows/server-tests.yml"
   workflow_dispatch: {}
 
 concurrency:
@@ -60,4 +71,13 @@ jobs:
       - name: Close SSH again
         if: always()
         run: |
-          [ -n "${RUNNER_IP:-}" ] && doctl compute firewall remove-rules "${{ secrets.DO_FIREWALL_ID }}" --inbound-rules "protocol:tcp,ports:22,address:$RUNNER_IP/32" || true
+          # Remove the runner's SSH rule, retrying, then verify it is gone. A rule left behind fails the job loudly.
+          [ -n "${RUNNER_IP:-}" ] || exit 0
+          for attempt in 1 2 3 4 5; do
+            doctl compute firewall remove-rules "${{ secrets.DO_FIREWALL_ID }}" --inbound-rules "protocol:tcp,ports:22,address:$RUNNER_IP/32" && break
+            sleep $((attempt * 5))
+          done
+          if doctl compute firewall get "${{ secrets.DO_FIREWALL_ID }}" --output json | grep -q "\"$RUNNER_IP/32\""; then
+            echo "::error::SSH rule for $RUNNER_IP/32 is still on firewall ${{ secrets.DO_FIREWALL_ID }} — remove it in the DigitalOcean dashboard"
+            exit 1
+          fi

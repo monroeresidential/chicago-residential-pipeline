@@ -40,6 +40,20 @@ describe("checkMissedRun", () => {
     expect(await checkMissedRun(db, vi.fn(async () => {}), at("2026-10-02T14:32:00Z"))).toBe("sent");
   });
 
+  it("sends with a stable daily idempotency key", async () => {
+    const mailer = vi.fn(async (_s: string, _t: string, _key: string) => {});
+    await checkMissedRun(db, mailer, at("2026-10-02T14:31:00Z"));
+    expect(mailer.mock.calls[0]![2]).toBe("missed-run-alert-2026-10-02");
+  });
+
+  it("retries a claim left unfinished by a crash", async () => {
+    await db.insertInto("job_runs").values({ name: "missed-run-alert", run_date: "2026-10-02", status: "sending", at: new Date("2026-10-02T14:31:00Z") }).execute();
+    const mailer = vi.fn(async () => {});
+    expect(await checkMissedRun(db, mailer, at("2026-10-02T14:35:00Z"))).toBe("already-sent"); // still in flight
+    expect(await checkMissedRun(db, mailer, at("2026-10-02T14:45:00Z"))).toBe("sent"); // stale claim → retried
+    expect(mailer).toHaveBeenCalledOnce();
+  });
+
   it("reports when no mailer is configured", async () => {
     expect(resendMailer(testConfig)).toBeNull();
     expect(await checkMissedRun(db, null, at("2026-10-02T14:31:00Z"))).toBe("no-mailer");
