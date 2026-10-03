@@ -21,8 +21,9 @@ latest=$(psql -d pipeline_restore -At -c "select max(name) from schema_migration
 echo "restored copy: $projects projects, latest migration $latest"
 [ "$projects" -gt 0 ] || { echo "restored copy has no projects; refusing to swap" >&2; exit 1; }
 
-psql -d postgres -c "drop database if exists pipeline_before_restore" \
-  -c "alter database pipeline rename to pipeline_before_restore" -c "alter database pipeline_restore rename to pipeline"
+psql -d postgres -c "drop database if exists pipeline_before_restore"
+# Both renames in one transaction: either the restored copy becomes "pipeline" or nothing changes.
+psql -d postgres -1 -c "alter database pipeline rename to pipeline_before_restore; alter database pipeline_restore rename to pipeline;"
 swapped=1
 docker compose run --rm --no-deps api node dist/migrate.js
 docker compose up -d --wait api

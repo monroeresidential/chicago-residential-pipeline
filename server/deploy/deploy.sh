@@ -41,8 +41,13 @@ if docker compose up -d --wait --wait-timeout 120 \
 else
   echo "deploy of $sha failed health checks; rolling back to ${prev:-<none>}" >&2
   if [ -n "$prev" ]; then
+    # Back to the previous commit's compose.yaml and Caddyfile as well as its image, then prove HTTPS works again.
+    git -C .. checkout --quiet --detach "$prev"
     docker tag "$IMAGE:$prev" "$IMAGE:deployed"
-    API_TAG="$prev" docker compose up -d --wait api
+    export API_TAG="$prev"
+    docker compose up -d --wait --wait-timeout 120
+    if [ "$(sha256sum Caddyfile | cut -d' ' -f1)" != "$caddy_hash" ]; then docker compose up -d --force-recreate caddy; fi
+    if https_ok; then echo "rolled back to $prev" >&2; else echo "ROLLBACK TO $prev ALSO FAILED HTTPS CHECKS — investigate now" >&2; fi
   fi
   exit 1
 fi
