@@ -118,7 +118,7 @@ describe("stale updates", () => {
     const item = await getQueueItem(ctx.db, upd!);
     expect(item.state).toBe("pending");
     expect(Object.keys(item.diff as object).sort()).toEqual(["status", "units"]);
-    await approveItem(ctx.db, "drew", upd!);
+    await approveItem(ctx.db, "drew", upd!, { base_hash: item.base_hash! });
     expect((await loadFilingRecord(ctx.db, filing_id)).status).toBe("Final - Passed (2026-06-17)");
   });
 
@@ -147,6 +147,41 @@ describe("stale updates", () => {
     await expect(approveItem(ctx.db, "drew", again!)).rejects.toMatchObject({ status: 409 });
     expect((await getQueueItem(ctx.db, again!)).state).toBe("pending");
     expect((await loadFilingRecord(ctx.db, filing_id)).units).toBe(300);
+  });
+
+  it("two approvals racing after an edit both stop; approving needs the refreshed base_hash", async () => {
+    const [first] = await queueRecords(ctx, [zoningRecord()]);
+    const { filing_id } = await approveItem(ctx.db, "drew", first!);
+    const [upd] = await queueRecords(ctx, [zoningRecord({ status: "Final - Passed (2026-06-17)" })]);
+    await withActor(ctx.db, "drew", "admin_edit", (q) => updateFilingRecord(q, filing_id, { units: 300 }));
+    const results = await Promise.allSettled([approveItem(ctx.db, "drew", upd!), approveItem(ctx.db, "drew", upd!)]);
+    expect(results.map((r) => r.status)).toEqual(["rejected", "rejected"]);
+    expect((await loadFilingRecord(ctx.db, filing_id)).units).toBe(300);
+    const item = await getQueueItem(ctx.db, upd!);
+    await expect(approveItem(ctx.db, "drew", upd!, { base_hash: "stale" })).rejects.toMatchObject({ status: 409 });
+    await approveItem(ctx.db, "drew", upd!, { base_hash: item.base_hash! });
+    expect((await loadFilingRecord(ctx.db, filing_id)).status).toBe("Final - Passed (2026-06-17)");
+  });
+
+  it("a bulk preview waits while a submission holds the intake lock", async () => {
+    await queueRecords(ctx, [zbaRecord()]);
+    let release!: () => void;
+    const held = new Promise<void>((r) => { release = r; });
+    const holder = ctx.db.transaction().execute(async (trx) => {
+      await sql`select pg_advisory_xact_lock(${INTAKE_LOCK})`.execute(trx);
+      await held;
+    });
+    let done = false;
+    const preview = bulkReview(ctx.db, "drew", { filter: {}, action: "approve" }).then(() => { done = true; });
+    try {
+      await new Promise((r) => setTimeout(r, 300));
+      expect(done).toBe(false);
+    } finally {
+      release();
+      await holder;
+      await preview;
+    }
+    expect(done).toBe(true);
   });
 
   it("bulk approval skips updates whose filing changed after the preview", async () => {
