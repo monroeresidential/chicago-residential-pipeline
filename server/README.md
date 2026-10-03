@@ -18,41 +18,56 @@ One DigitalOcean droplet runs a Docker Compose stack from `/opt/chicago-pipeline
 Files on the droplet that are **not** in git: `server/.env` (secrets, from `.env.example`), `server/certs/origin.pem`
 and `origin-key.pem`, `server/.api_tag` (the deployed image tag, written by the deploy script).
 
-## 2. One-time droplet setup
+## 2. One-time setup
 
-Drew does the dashboard steps; the shell steps run over SSH.
+The droplet itself (accounts, SSH, hardening, Docker, and this app's files on the server) is managed by the private
+infra repo `monroeresidential/infra` (`~/Github/infra`, Ansible). App secrets live in Bitwarden and infra's Ansible
+Vault, never on anyone's laptop. Drew does the dashboard steps.
 
-1. **Droplet:** Ubuntu 24.04, Basic, 2 GB RAM, region NYC3, weekly backups on, Drew's SSH key. Note the IP.
-2. **Cloud Firewall** attached to the droplet: inbound TCP 443 from every Cloudflare range listed at
-   https://www.cloudflare.com/ips/ (IPv4 and IPv6); inbound TCP 22 from Drew's current IP only; outbound all.
-   Note the firewall id (`doctl compute firewall list`). The deploy workflow opens 22 for its runner and closes it again.
-3. **On the droplet as root:**
-   ```bash
-   curl -fsSL https://get.docker.com | sh
-   adduser --disabled-password --gecos "" deploy && usermod -aG docker deploy
-   install -d -m 700 -o deploy -g deploy /home/deploy/.ssh   # put the CI deploy key's public half in authorized_keys
-   git clone https://github.com/monroeresidential/chicago-residential-pipeline /opt/chicago-pipeline
-   chown -R deploy:deploy /opt/chicago-pipeline
-   ```
-4. **As `deploy`:** `docker login ghcr.io -u <github user>` with a GitHub token that has only `read:packages`.
-5. **Secrets:** `cp server/.env.example server/.env`, fill it in (`openssl rand -hex 24` for `POSTGRES_PASSWORD`,
-   `openssl rand -hex 32` for `JWT_SECRET`, the Spaces key, the Resend key, `ALERT_FROM`, `ALERT_TO`), `chmod 600 server/.env`.
-6. **Cloudflare (chicagopipeline.com zone):**
-   - DNS: `A api → <droplet IP>`, **Proxied**.
-   - SSL/TLS → Origin Server → Create certificate for `api.chicagopipeline.com` (15 years). Save the certificate as
-     `server/certs/origin.pem` and the key as `server/certs/origin-key.pem` (`chmod 600`).
+**Access:** admin login is `ops@161.35.125.21` (`ssh chicago-pipeline`). Root cannot SSH, password logins are refused,
+and only `ops` and `deploy` may log in. Break-glass: DigitalOcean Droplet Console as `ops`. The `deploy` account (docker
+group, no sudo, owns `/opt/chicago-pipeline`) is used only by the deploy workflow; its key is `restrict`ed (no PTY or
+forwarding), so the workflow must keep using plain `ssh deploy@host "<command>"`. A forced `command=` wrapper that only
+accepts `deploy <commit sha>` is planned in infra; the workflow's remote command will change with it.
+
+1. **Droplet:** Ubuntu 24.04, Basic, 2 GB RAM, weekly backups on, IP `161.35.125.21`. Region: the README originally
+   said NYC3 but the droplet's hostname says `nyc1` — confirm in the dashboard. (If it is NYC1, the Spaces bucket can
+   stay in NYC3.)
+2. **Cloud Firewall:** managed by infra's `playbooks/cloud.yml` — inbound TCP 443 from Cloudflare's ranges, inbound 22
+   from admin IPs, outbound all. The deploy workflow temporarily adds and then removes an SSH rule for its runner on the
+   same firewall, so **don't run `cloud.yml` while a deploy is running** (one could remove the other's rule).
+3. **Server shell setup** (Docker, `deploy` user, clone to `/opt/chicago-pipeline`): done by the infra repo
+   (`ansible-playbook playbooks/site.yml`, app role `app_chicago_pipeline`).
+4. **GHCR login for `deploy`:** done by infra's app role (read-only `read:packages` token from its Vault).
+5. **`server/.env`:** written by infra's app role from its Vault (mode 600). Values: `POSTGRES_PASSWORD`, `JWT_SECRET`,
+   the Spaces key, `RESEND_API_KEY`, `ALERT_FROM`, `ALERT_TO`, optional `SITE_BUILD_HOOK_*`. It must **not** set
+   `API_TAG`: compose defaults to the locally tagged `:deployed` image that `deploy.sh` maintains.
+6. **Cloudflare (chicagopipeline.com zone)** — Drew in the dashboard:
+   - DNS: `A api → 161.35.125.21`, **Proxied**.
+   - SSL/TLS → Origin Server → Create certificate for `api.chicagopipeline.com` (15 years) and store it in infra's
+     Vault; infra's app role writes `server/certs/origin.pem` and `origin-key.pem` (mode 600).
    - Rules → Configuration Rules: hostname equals `api.chicagopipeline.com` → SSL **Full (strict)**.
    - Security → WAF → Rate limiting rule: hostname `api.chicagopipeline.com` and URI path does not start with
      `/v1/submissions` → 100 requests per minute per IP → block for 1 minute.
-7. **Spaces:** private bucket `chicago-pipeline-backups` and an access key limited to it.
-8. **Nightly backup** (`crontab -e` as `deploy`; 08:15 UTC = 3:15 am CT):
-   `15 8 * * * cd /opt/chicago-pipeline/server && docker compose --profile tools run --rm backup >> /home/deploy/backup.log 2>&1`
+7. **Spaces:** private bucket `chicago-pipeline-backups` and an access key limited to it (stored in infra's Vault).
+8. **Nightly backup** (08:15 UTC = 3:15 am CT): the `deploy` crontab entry is installed by infra's app role.
 9. **Uptime:** DigitalOcean Monitoring → Uptime → HTTPS check on `https://api.chicagopipeline.com/healthz`, alert email to Drew.
-10. **GitHub** → Settings → Environments → `production`, secrets: `DO_API_TOKEN` (a DigitalOcean token that can edit
-    firewalls), `DO_FIREWALL_ID`, `DEPLOY_HOST` (droplet IP), `DEPLOY_SSH_KEY` (private half of the deploy key),
-    `DEPLOY_KNOWN_HOSTS` (output of `ssh-keyscan <droplet IP>`).
+10. **GitHub** → Settings → Secrets and variables → Actions → **Repository secrets** (not environment secrets):
+    - `DEPLOY_SSH_KEY` — private half of the ed25519 key made only for GitHub Actions (Bitwarden SSH key item
+      "chicago-pipeline deploy (GitHub Actions)"); infra installs the public half for `deploy`.
+    - `DEPLOY_HOST` — `161.35.125.21`
+    - `DEPLOY_KNOWN_HOSTS` — a single line:
+      `161.35.125.21 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICMEx2/2XhBjOtNJW9gXfIb9ybUB/D2W/mw8SQxvjUXl`
+      (`SHA256:FCGnSEHpeYeR74/E5tO2QyFt49aZnWlzSJ8IcINwcOI`, verified against the host).
+    - `DO_API_TOKEN` — a DigitalOcean token limited to firewall changes; `DO_FIREWALL_ID` — the droplet's Cloud Firewall.
 11. **Cloudflare Workers Builds** → chicago-pipeline → Settings → Build → Build watch paths: include `*`, exclude
     `server/*`, so server-only changes don't rebuild the site.
+
+**Host facts the stack relies on** (set by infra): Docker daemon with `log-driver: local` (20 MB × 5), `live-restore`
+and `no-new-privileges` for every container (don't add setuid-based escalation to images); ufw allows 22 and 443 only
+(Docker-published ports bypass ufw, so the Cloud Firewall is the real gate); fail2ban on sshd; `/proc` mounted
+`hidepid=invisible`. Security updates install daily but never reboot automatically, so every long-running service keeps
+`restart: unless-stopped` (compose.yaml does).
 
 ## 3. Deploys
 
