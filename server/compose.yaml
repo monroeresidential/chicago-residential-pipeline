@@ -18,7 +18,8 @@ services:
       retries: 30
 
   api:
-    image: ghcr.io/monroeresidential/chicago-pipeline-api:${API_TAG:-latest}
+    # deploy.sh tags each successful deploy as :deployed, so manual commands (no API_TAG) use the running version
+    image: ghcr.io/monroeresidential/chicago-pipeline-api:${API_TAG:-deployed}
     restart: unless-stopped
     env_file:
       - path: .env

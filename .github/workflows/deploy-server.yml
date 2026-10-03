@@ -77,7 +77,11 @@ jobs:
             doctl compute firewall remove-rules "${{ secrets.DO_FIREWALL_ID }}" --inbound-rules "protocol:tcp,ports:22,address:$RUNNER_IP/32" && break
             sleep $((attempt * 5))
           done
-          if doctl compute firewall get "${{ secrets.DO_FIREWALL_ID }}" --output json | grep -q "\"$RUNNER_IP/32\""; then
+          if ! rules=$(doctl compute firewall get "${{ secrets.DO_FIREWALL_ID }}" --output json); then
+            echo "::error::could not read firewall ${{ secrets.DO_FIREWALL_ID }} to verify the SSH rule for $RUNNER_IP/32 was removed — check the DigitalOcean dashboard"
+            exit 1
+          fi
+          if printf '%s' "$rules" | grep -q "\"$RUNNER_IP/32\""; then
             echo "::error::SSH rule for $RUNNER_IP/32 is still on firewall ${{ secrets.DO_FIREWALL_ID }} — remove it in the DigitalOcean dashboard"
             exit 1
           fi

@@ -78,25 +78,13 @@ docker compose exec api node dist/import-csv.js data/projects.csv   # one time o
 docker compose --profile tools run --rm backup                      # backup now
 ```
 
-**Restore a backup** (production; writers stopped, restored into a fresh database, checked before switching):
+**Restore a backup** (production): `scripts/restore.sh pipeline-<timestamp>.dump`. It stops the API, restores into
+a fresh database all-or-nothing (`--exit-on-error --single-transaction`), refuses to swap if the copy has no projects,
+then swaps it in, runs migrations, starts the API and checks HTTPS. Any failure before the swap leaves the live
+database untouched and restarts the API. The previous data stays as database `pipeline_before_restore` until you drop it.
 
-```bash
-docker compose stop api                                    # nothing writes while restoring
-docker compose --profile tools run --rm -v /tmp:/out --entrypoint sh backup -c \
-  'aws --endpoint-url "$SPACES_ENDPOINT" s3 cp "s3://$SPACES_BUCKET/backups/<file>.dump" /out/restore.dump'   # aws lives in the backup image
-docker compose exec -T db psql -U pipeline -d postgres -c "create database pipeline_restore"
-docker compose exec -T db pg_restore -U pipeline -d pipeline_restore --no-owner --exit-on-error --single-transaction < /tmp/restore.dump
-docker compose exec -T db psql -U pipeline -d pipeline_restore -c "select count(*) from projects; select max(name) from schema_migrations;"
-# compare the latest migration with server/migrations in the deployed commit; if older, the next step applies the rest
-docker compose exec -T db psql -U pipeline -d postgres \
-  -c "alter database pipeline rename to pipeline_before_restore" -c "alter database pipeline_restore rename to pipeline"
-docker compose run --rm --no-deps api node dist/migrate.js
-docker compose up -d --wait api && curl -fsS -k --resolve api.chicagopipeline.com:443:127.0.0.1 https://api.chicagopipeline.com/healthz
-# keep pipeline_before_restore until the restored data is confirmed, then: drop database pipeline_before_restore
-```
-
-`--exit-on-error --single-transaction` makes a failed restore leave `pipeline_restore` empty instead of half-restored;
-the live database is only swapped once the restore succeeded.
+**Which image runs:** each successful deploy tags its image `:deployed` (and writes the commit to `.api_tag`), so plain
+`docker compose …` commands use the deployed version; no `API_TAG` needed.
 
 ## 5. Local development
 
