@@ -60,7 +60,7 @@ export interface DB {
     review_note: string | null; created_at: Generated<Date>;
   };
   bulk_previews: {
-    code: string; action: string; filter: Jsonb; item_ids: number[]; link_strong: boolean; reason: string | null;
+    code: string; action: string; filter: Jsonb; item_ids: number[]; item_bases: Jsonb<Record<string, string | null>>; link_strong: boolean; reason: string | null;
     created_by: string; expires_at: Ts;
   };
   site_state: {

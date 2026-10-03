@@ -122,6 +122,33 @@ describe("stale updates", () => {
     expect((await loadFilingRecord(ctx.db, filing_id)).status).toBe("Final - Passed (2026-06-17)");
   });
 
+  it("a second bulk preview made before an edit can't approve over it", async () => {
+    const [first] = await queueRecords(ctx, [zoningRecord()]);
+    const { filing_id } = await approveItem(ctx.db, "drew", first!);
+    await queueRecords(ctx, [zoningRecord({ status: "Final - Passed (2026-06-17)" })]);
+    const p1 = await bulkReview(ctx.db, "drew", { filter: {}, action: "approve" });
+    const p2 = await bulkReview(ctx.db, "drew", { filter: {}, action: "approve" });
+    if (!p1.preview || !p2.preview) throw new Error("expected previews");
+    await withActor(ctx.db, "drew", "admin_edit", (q) => updateFilingRecord(q, filing_id, { units: 300 }));
+    expect(await bulkReview(ctx.db, "drew", { filter: {}, action: "approve", confirm: p1.confirm })).toMatchObject({ approved: 0 });
+    expect(await bulkReview(ctx.db, "drew", { filter: {}, action: "approve", confirm: p2.confirm })).toMatchObject({ approved: 0 });
+    expect((await loadFilingRecord(ctx.db, filing_id)).units).toBe(300);
+  });
+
+  it("a queued restore can't overwrite a filing that was restored and edited by hand", async () => {
+    const [first] = await queueRecords(ctx, [zoningRecord()]);
+    const { filing_id } = await approveItem(ctx.db, "drew", first!);
+    await withActor(ctx.db, "drew", "admin_edit", (q) => setFilingDeleted(q, filing_id, true));
+    const [again] = await queueRecords(ctx, [zoningRecord({ units: 400 })]);
+    await withActor(ctx.db, "drew", "admin_edit", async (q) => {
+      await setFilingDeleted(q, filing_id, false);
+      await updateFilingRecord(q, filing_id, { units: 300 });
+    });
+    await expect(approveItem(ctx.db, "drew", again!)).rejects.toMatchObject({ status: 409 });
+    expect((await getQueueItem(ctx.db, again!)).state).toBe("pending");
+    expect((await loadFilingRecord(ctx.db, filing_id)).units).toBe(300);
+  });
+
   it("bulk approval skips updates whose filing changed after the preview", async () => {
     const [first] = await queueRecords(ctx, [zoningRecord()]);
     const { filing_id } = await approveItem(ctx.db, "drew", first!);

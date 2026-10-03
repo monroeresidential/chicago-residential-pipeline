@@ -47,6 +47,7 @@ export async function revertTo(q: Db, table: Revertible, recordId: string, versi
     await q.insertInto("project_filings").values({
       project_id: projectId!, filing_id: Number(filingId), role: String(target.role), linked_by: String(target.linked_by), reason: String(target.reason),
     }).onConflict((oc) => oc.columns(["project_id", "filing_id"]).doUpdateSet({ role: String(target.role), reason: String(target.reason) })).execute();
+    await syncLinkRoles(q, Number(filingId)); // the role follows the filing's current classification, not the old one
     return;
   }
   if (!target) throw new HttpError(400, `${table} rows are never hard-deleted; pick a version with data`);

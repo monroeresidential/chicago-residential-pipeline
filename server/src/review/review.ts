@@ -32,7 +32,8 @@ export const ApproveOptionsSchema = z.strictObject({
 export type ApproveOptions = z.input<typeof ApproveOptionsSchema>;
 export interface ApproveResult { queue_item_id: number; filing_id: number; linked_project_id: string | null; status_change: StatusChange | null }
 
-export async function approveItem(db: Db, reviewer: string, id: number, rawOpts: ApproveOptions = {}): Promise<ApproveResult> {
+/** `expectBase` (bulk confirms): approve only if the item's base_hash still equals what the preview showed. */
+export async function approveItem(db: Db, reviewer: string, id: number, rawOpts: ApproveOptions = {}, expectBase?: { base: string | null }): Promise<ApproveResult> {
   const opts = ApproveOptionsSchema.parse(rawOpts);
   if (opts.link_to && opts.create_project) throw new HttpError(400, "use link_to or create_project, not both");
   const result = await withActor(db, reviewer, `queue_item:${id}`, async (q): Promise<ApproveResult | { stale: "deleted" | "changed" }> => {
@@ -58,8 +59,16 @@ export async function approveItem(db: Db, reviewer: string, id: number, rawOpts:
     const blocking = issues.filter((i) => i.blocking);
     if (blocking.length) throw new HttpError(422, "fix these values with overrides before approving", blocking);
 
+    if (expectBase && (item.base_hash ?? null) !== expectBase.base) return { stale: "changed" }; // changed after the preview
+    const current = await q.selectFrom("filings").select(["id", "deleted_at", "content_hash"]).where("kind", "=", item.kind).where("source_key", "=", item.source_key).executeTakeFirst();
+    if (item.action === "create" && current && !current.deleted_at) {
+      // Queued as a restore/new filing, but the filing is live again (restored by hand, maybe edited): review as an update.
+      const diff = diffRecords(await loadFilingRecord(q, current.id), item.proposed as NormalizedRecord);
+      await q.updateTable("queue_items").set({ action: "update", diff: JSON.stringify(diff), base_hash: current.content_hash }).where("id", "=", id).execute();
+      return { stale: "changed" };
+    }
     if (item.action === "update") {
-      const f = await q.selectFrom("filings").select(["id", "deleted_at", "content_hash"]).where("kind", "=", item.kind).where("source_key", "=", item.source_key).executeTakeFirst();
+      const f = current;
       if (!f || f.deleted_at) {
         await q.updateTable("queue_items").set({ state: "superseded" }).where("id", "=", id).execute();
         return { stale: "deleted" }; // committed first, then reported (a throw here would roll the supersede back)
@@ -152,8 +161,10 @@ export async function bulkReview(db: Db, reviewer: string, raw: BulkReviewReques
     const ids = (await filtered(db, filter).select("id").orderBy("id").execute()).map((r) => r.id);
     const code = randomBytes(5).toString("hex");
     const expires = new Date(Date.now() + CONFIRM_TTL_MS);
+    const bases = Object.fromEntries((ids.length ? await db.selectFrom("queue_items").select(["id", "base_hash"]).where("id", "in", ids).execute() : [])
+      .map((r) => [String(r.id), r.base_hash]));
     await db.insertInto("bulk_previews").values({
-      code, action: req.action, filter: JSON.stringify(filter), item_ids: ids, link_strong: req.link_strong,
+      code, action: req.action, filter: JSON.stringify(filter), item_ids: ids, item_bases: JSON.stringify(bases), link_strong: req.link_strong,
       reason: req.reason ?? null, created_by: reviewer, expires_at: expires,
     }).execute();
     const sample = (await listQueue(db, filter, { limit: 10 })).items;
@@ -174,7 +185,8 @@ export async function bulkReview(db: Db, reviewer: string, raw: BulkReviewReques
         result.rejected++;
       } else {
         const strong = ((item.suggestions as { projects?: ProjectSuggestion[] }).projects ?? []).filter((s) => s.strength === "strong");
-        await approveItem(db, reviewer, id, preview.link_strong && strong.length === 1 ? { link_to: strong[0]!.project_id } : {});
+        const bases = preview.item_bases as Record<string, string | null>;
+        await approveItem(db, reviewer, id, preview.link_strong && strong.length === 1 ? { link_to: strong[0]!.project_id } : {}, { base: bases[String(id)] ?? null });
         result.approved++;
       }
     } catch (e) {

@@ -234,6 +234,19 @@ describe("history and revert", () => {
     expect((await ctx.db.selectFrom("project_filings").select("role").executeTakeFirstOrThrow()).role).toBe("early_signal");
   });
 
+  it("reverting an unlink uses the filing's current classification for the role", async () => {
+    await withActor(ctx.db, "drew", "admin_edit", (q) => createProjectRow(q, { id: "p1", name: "P", address: "111 W Monroe St", program: "private",
+      status: "planning", status_note: "n", lat: 41.880635, lng: -87.631098, sources: ["https://example.com/a"], visibility: "published" }));
+    const [f] = await approveAll([permitRecord({ classification: "early_signal" })]);
+    await withActor(ctx.db, "drew", "admin_edit", async (q) => {
+      await linkFiling(q, "p1", f!, "drew", "manual");
+      await unlinkFiling(q, "p1", f!);
+      await updateFilingRecord(q, f!, { classification: "qualifying_20plus" });
+    });
+    await withActor(ctx.db, "drew", "revert", (q) => revertTo(q, "project_filings", `p1:${f}`, 1));
+    expect((await ctx.db.selectFrom("project_filings").select("role").executeTakeFirstOrThrow()).role).toBe("permit");
+  });
+
   it("404s an unknown version", async () => {
     await expect(withActor(ctx.db, "drew", "revert", (q) => revertTo(q, "projects", "nope", 1))).rejects.toMatchObject({ status: 404 });
   });
