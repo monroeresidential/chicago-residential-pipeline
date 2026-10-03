@@ -1,0 +1,20 @@
+name: chicago-pipeline-dev
+services:
+  db:
+    build: ./db
+    image: chicago-pipeline-db:17
+    environment:
+      POSTGRES_USER: pipeline
+      POSTGRES_PASSWORD: pipeline
+      POSTGRES_DB: pipeline
+    ports: ["127.0.0.1:5433:5432"] # local only: the dev DB may hold restored production data
+    volumes:
+      - devdata:/var/lib/postgresql/data
+      - ./db/dev-init.sql:/docker-entrypoint-initdb.d/90-dev-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pipeline -d pipeline_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+volumes:
+  devdata: {}

@@ -1,0 +1,87 @@
+name: Deploy server
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "shared/**"
+      - "src/lib/**"
+      - "data/projects.csv"
+      # build inputs of the API image
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".dockerignore"
+      - ".github/workflows/deploy-server.yml"
+      - ".github/workflows/server-tests.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/server-tests.yml
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/Dockerfile
+          push: true
+          tags: ghcr.io/monroeresidential/chicago-pipeline-api:${{ github.sha }}
+
+  deploy:
+    needs: image
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DO_API_TOKEN }}
+      - name: Allow SSH from this runner only
+        run: |
+          ip=$(curl -fsS https://api.ipify.org)
+          echo "RUNNER_IP=$ip" >> "$GITHUB_ENV"
+          doctl compute firewall add-rules "${{ secrets.DO_FIREWALL_ID }}" --inbound-rules "protocol:tcp,ports:22,address:$ip/32"
+      - name: Deploy
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh deploy@${{ secrets.DEPLOY_HOST }} \
+            "cd /opt/chicago-pipeline && git fetch --quiet origin && git checkout --quiet --detach ${{ github.sha }} && server/deploy/deploy.sh ${{ github.sha }}"
+      - name: Close SSH again
+        if: always()
+        run: |
+          # Remove the runner's SSH rule, retrying, then verify it is gone. A rule left behind fails the job loudly.
+          [ -n "${RUNNER_IP:-}" ] || exit 0
+          for attempt in 1 2 3 4 5; do
+            doctl compute firewall remove-rules "${{ secrets.DO_FIREWALL_ID }}" --inbound-rules "protocol:tcp,ports:22,address:$RUNNER_IP/32" && break
+            sleep $((attempt * 5))
+          done
+          if ! rules=$(doctl compute firewall get "${{ secrets.DO_FIREWALL_ID }}" --output json); then
+            echo "::error::could not read firewall ${{ secrets.DO_FIREWALL_ID }} to verify the SSH rule for $RUNNER_IP/32 was removed — check the DigitalOcean dashboard"
+            exit 1
+          fi
+          if printf '%s' "$rules" | grep -q "\"$RUNNER_IP/32\""; then
+            echo "::error::SSH rule for $RUNNER_IP/32 is still on firewall ${{ secrets.DO_FIREWALL_ID }} — remove it in the DigitalOcean dashboard"
+            exit 1
+          fi

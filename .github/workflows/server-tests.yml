@@ -1,0 +1,24 @@
+name: Server tests
+on:
+  workflow_call: {}
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start Postgres 17 + PostGIS + pgvector
+        run: |
+          docker build -t chicago-pipeline-db:test server/db
+          docker run -d --name db -p 5433:5432 -e POSTGRES_USER=pipeline -e POSTGRES_PASSWORD=pipeline \
+            -e POSTGRES_DB=pipeline_test chicago-pipeline-db:test
+          for i in $(seq 1 60); do docker exec db pg_isready -U pipeline -d pipeline_test && break; sleep 2; done
+      - run: pnpm --filter server typecheck
+      - run: pnpm --filter server test
+      - run: docker build -f server/Dockerfile -t chicago-pipeline-api:test .

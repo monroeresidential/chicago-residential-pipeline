@@ -1,0 +1,11 @@
+{
+	auto_https off
+	admin off
+}
+
+https://api.chicagopipeline.com:443 {
+	# Cloudflare Origin CA certificate (SSL/TLS → Origin Server), saved on the droplet in server/certs/.
+	tls /certs/origin.pem /certs/origin-key.pem
+	encode gzip
+	reverse_proxy api:8787
+}

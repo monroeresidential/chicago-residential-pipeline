@@ -1,0 +1,206 @@
+import { randomBytes } from "node:crypto";
+import { sql } from "kysely";
+import { z } from "zod";
+import type { Status } from "../../../shared/constants";
+import { formatAddressDisplay } from "../../../shared/normalize/address";
+import { diffRecords } from "../../../shared/records/diff";
+import { contentHash } from "../../../shared/records/hash";
+import { normalizeRecord } from "../../../shared/records/normalize-record";
+import type { Issue, NormalizedRecord, WireRecord } from "../../../shared/records/types";
+import { withActor } from "../db/actor";
+import { INTAKE_LOCK } from "../db/locks";
+import type { Db } from "../db/client";
+import { HttpError } from "../errors";
+import { validateRecord } from "../intake/submit";
+import { suggestStatusChange, type StatusChange } from "../match/status";
+import type { ProjectSuggestion } from "../match/suggest";
+import { markChanged } from "../publish/state";
+import { linkFiling } from "../store/edit";
+import { loadFilingRecord, writeFiling } from "../store/filings";
+import { createProjectRow, ProjectCreateInput, updateProjectRow } from "../store/projects";
+import { resolveAliases } from "../store/shared-values";
+import { filtered, listQueue, QueueFilterSchema, type QueueItemSummary } from "./queue";
+
+export const ApproveOptionsSchema = z.strictObject({
+  link_to: z.string().optional(),
+  create_project: ProjectCreateInput.partial().required({ id: true }).optional(),
+  overrides: z.record(z.string(), z.unknown()).optional(),
+  accept_status_change: z.boolean().optional(),
+  status_note: z.string().min(1).optional(),
+  note: z.string().optional(),
+  /** Required once an item's diff was refreshed: the base_hash shown on the refreshed item (proves it was re-reviewed). */
+  base_hash: z.string().optional(),
+});
+export type ApproveOptions = z.input<typeof ApproveOptionsSchema>;
+export interface ApproveResult { queue_item_id: number; filing_id: number; linked_project_id: string | null; status_change: StatusChange | null }
+
+/** `expectBase` (bulk confirms): approve only if the item's base_hash still equals what the preview showed. */
+export async function approveItem(db: Db, reviewer: string, id: number, rawOpts: ApproveOptions = {}, expectBase?: { base: string | null }): Promise<ApproveResult> {
+  const opts = ApproveOptionsSchema.parse(rawOpts);
+  if (opts.link_to && opts.create_project) throw new HttpError(400, "use link_to or create_project, not both");
+  const result = await withActor(db, reviewer, `queue_item:${id}`, async (q): Promise<ApproveResult | { stale: "deleted" | "changed" | "refreshed" }> => {
+    await sql`select pg_advisory_xact_lock(${INTAKE_LOCK})`.execute(q); // never interleave with a submission
+    const item = await q.selectFrom("queue_items").selectAll().where("id", "=", id).forUpdate().executeTakeFirst();
+    if (!item) throw new HttpError(404, `no queue item ${id}`);
+    if (item.state !== "pending") throw new HttpError(409, `queue item ${id} is ${item.state}`);
+
+    let record = item.proposed as NormalizedRecord;
+    let issues = item.normalization_issues as Issue[];
+    if (opts.overrides) {
+      const sub = await q.selectFrom("submissions").select("body").where("id", "=", item.submission_id).executeTakeFirstOrThrow();
+      const raw = (sub.body as { records: WireRecord[] }).records[item.record_index]!;
+      const v = validateRecord({ ...raw, data: { ...raw.data, ...opts.overrides } });
+      if (!v.ok) throw new HttpError(422, "overrides are not valid", v.errors);
+      const n = normalizeRecord(v.record);
+      if (n.record.source_key !== item.source_key) {
+        throw new HttpError(422, `overrides would change the record's identity (${item.source_key} → ${n.record.source_key}); reject it instead`);
+      }
+      record = await resolveAliases(q, n.record);
+      issues = n.issues;
+    }
+    const blocking = issues.filter((i) => i.blocking);
+    if (blocking.length) throw new HttpError(422, "fix these values with overrides before approving", blocking);
+
+    if (expectBase && (item.base_hash ?? null) !== expectBase.base) return { stale: "changed" }; // changed after the preview
+    if (item.refreshed && !expectBase && opts.base_hash !== item.base_hash) return { stale: "refreshed" };
+    const current = await q.selectFrom("filings").select(["id", "deleted_at", "content_hash"]).where("kind", "=", item.kind).where("source_key", "=", item.source_key).executeTakeFirst();
+    if (item.action === "create" && current && !current.deleted_at) {
+      // Queued as a restore/new filing, but the filing is live again (restored by hand, maybe edited): review as an update.
+      const diff = diffRecords(await loadFilingRecord(q, current.id), item.proposed as NormalizedRecord);
+      await q.updateTable("queue_items").set({ action: "update", diff: JSON.stringify(diff), base_hash: current.content_hash, refreshed: true }).where("id", "=", id).execute();
+      return { stale: "changed" };
+    }
+    if (item.action === "update") {
+      const f = current;
+      if (!f || f.deleted_at) {
+        await q.updateTable("queue_items").set({ state: "superseded" }).where("id", "=", id).execute();
+        return { stale: "deleted" }; // committed first, then reported (a throw here would roll the supersede back)
+      }
+      if (item.base_hash && f.content_hash !== item.base_hash) {
+        // The filing was edited or reverted after this item was queued: approving the whole proposal would undo that.
+        // Refresh the diff against the current filing and send it back for review.
+        const diff = diffRecords(await loadFilingRecord(q, f.id), item.proposed as NormalizedRecord);
+        await q.updateTable("queue_items").set({ diff: JSON.stringify(diff), base_hash: f.content_hash, refreshed: true }).where("id", "=", id).execute();
+        return { stale: "changed" };
+      }
+    }
+    // What Grok sent, re-resolved against today's merges (the item may have been queued before one).
+    const sourceHash = contentHash(await resolveAliases(q, item.proposed as NormalizedRecord), item.normalization_issues as Issue[]);
+    const filingId = await writeFiling(q, record, { sourceHash, sourceItemId: id });
+    let projectId: string | null = opts.link_to ?? null;
+    let reason = "linked in review";
+
+    if (opts.create_project) {
+      const loaded = await loadFilingRecord(q, filingId);
+      const point = loaded.point;
+      const input = {
+        status: "planning" as Status, program: "private" as const, confidence: "reported" as const, visibility: "draft" as const,
+        status_note: `Added from ${record.kind.replace("_", " ")} ${record.source_key}`,
+        address: loaded.addresses[0] ? formatAddressDisplay(loaded.addresses[0]) : undefined,
+        lat: point?.lat, lng: point?.lon, sources: record.source_url ? [record.source_url] : undefined,
+        ...opts.create_project,
+      };
+      if (input.lat === undefined || input.lng === undefined || !input.address || !input.sources) {
+        throw new HttpError(422, "create_project needs address, lat, lng and sources the filing does not provide");
+      }
+      await createProjectRow(q, input as Parameters<typeof createProjectRow>[1]);
+      projectId = input.id;
+      reason = "project created from this filing";
+    }
+
+    let statusChange: StatusChange | null = null;
+    if (projectId) {
+      const s = ((item.suggestions as { projects?: ProjectSuggestion[] }).projects ?? []).find((p) => p.project_id === projectId);
+      if (s) reason = `${s.strength}: ${s.reasons.join("; ")}`;
+      await linkFiling(q, projectId, filingId, reviewer, reason);
+      if (opts.accept_status_change) {
+        const p = await q.selectFrom("projects").select("status").where("id", "=", projectId).executeTakeFirstOrThrow();
+        statusChange = suggestStatusChange(p.status as Status, record);
+        if (statusChange) await updateProjectRow(q, projectId, { status: statusChange.to, status_note: opts.status_note ?? statusChange.reason });
+      }
+    }
+
+    await q.updateTable("queue_items").set({ state: "approved", reviewed_by: reviewer, reviewed_at: new Date(), review_note: opts.note ?? null }).where("id", "=", id).execute();
+    await markChanged(q, { projectIds: projectId ? [projectId] : [], filingIds: [filingId] });
+    return { queue_item_id: id, filing_id: filingId, linked_project_id: projectId, status_change: statusChange };
+  });
+  if ("stale" in result) {
+    throw new HttpError(409, result.stale === "deleted"
+      ? `queue item ${id} updates a filing that has since been deleted; it was superseded`
+      : result.stale === "changed"
+        ? `the filing changed after queue item ${id} was queued; its diff was refreshed — review it again, then approve with its base_hash`
+        : `queue item ${id} has a refreshed diff; review it (get_queue_item) and approve with its current base_hash`);
+  }
+  return result;
+}
+
+export async function rejectItem(db: Db, reviewer: string, id: number, reason: string): Promise<void> {
+  if (!reason.trim()) throw new HttpError(400, "a reason is required to reject");
+  const r = await db.updateTable("queue_items").set({ state: "rejected", reviewed_by: reviewer, reviewed_at: new Date(), review_note: reason.trim() })
+    .where("id", "=", id).where("state", "=", "pending").executeTakeFirst();
+  if (Number(r.numUpdatedRows) !== 1) throw new HttpError(409, `queue item ${id} is not pending`);
+}
+
+export const BulkReviewSchema = z.strictObject({
+  filter: QueueFilterSchema.omit({ state: true }).partial().default({}),
+  action: z.enum(["approve", "reject"]),
+  link_strong: z.boolean().default(false),
+  reason: z.string().optional(),
+  confirm: z.string().optional(),
+});
+export type BulkReviewRequest = z.input<typeof BulkReviewSchema>;
+export type BulkPreview = { preview: true; count: number; sample: QueueItemSummary[]; confirm: string; expires_at: string };
+export type BulkResult = { preview: false; approved: number; rejected: number; skipped: number; errors: { id: number; error: string }[] };
+
+const CONFIRM_TTL_MS = 10 * 60 * 1000;
+
+export async function bulkReview(db: Db, reviewer: string, raw: BulkReviewRequest): Promise<BulkPreview | BulkResult> {
+  const req = BulkReviewSchema.parse(raw);
+  if (req.action === "reject" && !req.reason?.trim()) throw new HttpError(400, "a reason is required to reject");
+
+  if (!req.confirm) {
+    if (req.action === "approve" && req.filter.has_issues === true) {
+      throw new HttpError(400, "items with blocking issues cannot be bulk-approved; fix them with overrides one at a time");
+    }
+    // Membership, baselines and the sample come from one consistent state, taken under the intake lock.
+    return db.transaction().execute(async (trx) => {
+      await sql`select pg_advisory_xact_lock(${INTAKE_LOCK})`.execute(trx);
+      const filter = { ...req.filter, state: "pending" as const, ...(req.action === "approve" ? { has_issues: false } : {}) };
+      const rows = await filtered(trx, filter).select(["id", "base_hash"]).orderBy("id").execute();
+      const ids = rows.map((r) => r.id);
+      const bases = Object.fromEntries(rows.map((r) => [String(r.id), r.base_hash]));
+      const code = randomBytes(5).toString("hex");
+      const expires = new Date(Date.now() + CONFIRM_TTL_MS);
+      await trx.insertInto("bulk_previews").values({
+        code, action: req.action, filter: JSON.stringify(filter), item_ids: ids, item_bases: JSON.stringify(bases), link_strong: req.link_strong,
+        reason: req.reason ?? null, created_by: reviewer, expires_at: expires,
+      }).execute();
+      const sample = (await listQueue(trx, filter, { limit: 10 })).items;
+      return { preview: true as const, count: ids.length, sample, confirm: code, expires_at: expires.toISOString() };
+    });
+  }
+
+  const preview = await db.deleteFrom("bulk_previews").where("code", "=", req.confirm).returningAll().executeTakeFirst();
+  if (!preview || preview.created_by !== reviewer || preview.action !== req.action || preview.expires_at.getTime() < Date.now()) {
+    throw new HttpError(400, "confirmation code is invalid or expired; run the preview again");
+  }
+  const result: BulkResult = { preview: false, approved: 0, rejected: 0, skipped: 0, errors: [] };
+  for (const id of preview.item_ids) {
+    try {
+      const item = await db.selectFrom("queue_items").select(["state", "suggestions"]).where("id", "=", id).executeTakeFirstOrThrow();
+      if (item.state !== "pending") { result.skipped++; continue; }
+      if (preview.action === "reject") {
+        await rejectItem(db, reviewer, id, preview.reason ?? "bulk reject");
+        result.rejected++;
+      } else {
+        const strong = ((item.suggestions as { projects?: ProjectSuggestion[] }).projects ?? []).filter((s) => s.strength === "strong");
+        const bases = preview.item_bases as Record<string, string | null>;
+        await approveItem(db, reviewer, id, preview.link_strong && strong.length === 1 ? { link_to: strong[0]!.project_id } : {}, { base: bases[String(id)] ?? null });
+        result.approved++;
+      }
+    } catch (e) {
+      result.errors.push({ id, error: (e as Error).message });
+    }
+  }
+  return result;
+}

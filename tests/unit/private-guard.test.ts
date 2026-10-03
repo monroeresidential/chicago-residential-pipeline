@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 // private/, inbox/ and data/raw/ hold confidential deal materials. The repo is public, so nothing under
@@ -15,5 +16,21 @@ describe("confidential folders stay out of git", () => {
 
   it("ignores private/", () => {
     expect(execSync("git check-ignore private/deals.csv || true", { encoding: "utf8" }).trim()).toBe("private/deals.csv");
+  });
+
+  it("ignores server secrets and certificates", () => {
+    const out = execSync("git check-ignore server/.env server/.env.local server/certs/origin.pem || true", { encoding: "utf8" });
+    expect(out.trim().split("\n")).toEqual(["server/.env", "server/.env.local", "server/certs/origin.pem"]);
+  });
+
+  it("keeps .env.example tracked-able", () => {
+    expect(execSync("git check-ignore server/.env.example || true", { encoding: "utf8" }).trim()).toBe("");
+  });
+
+  it("keeps confidential folders out of Docker build context", () => {
+    const lines = readFileSync(".dockerignore", "utf8").split("\n").map((l) => l.trim());
+    for (const entry of ["private", "inbox", "data/raw", "**/.env*", "server/certs", ".git", "node_modules"]) {
+      expect(lines).toContain(entry);
+    }
   });
 });

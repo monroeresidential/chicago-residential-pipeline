@@ -17,9 +17,15 @@ pnpm test:e2e tests/e2e/map.spec.ts -g "Enter"   # one e2e test
 pnpm data:check          # validate data/projects.csv, print totals + per-stage counts
 pnpm geocode             # fill empty lat/lng in data/projects.csv (Census geocoder); verify pins by eye
 pnpm run deploy          # manual deploy (normally unnecessary, see Deploy)
+pnpm db:up               # local Postgres 17 + PostGIS + pgvector on :5433 (server/compose.dev.yaml)
+pnpm server:test         # server integration tests (needs db:up); pnpm --filter server test tests/review.test.ts for one file
+pnpm server:dev          # API + MCP on localhost:8787 against the local database (server/.env.local)
+pnpm db:pull             # restore last night's production backup locally, issue a local editor token
+pnpm server:replay <id>  # dry-run a past Grok submission through today's code
+pnpm streets:fetch       # refresh shared/data/streets.json from the Chicago Data Portal
 ```
 
-CI (`.github/workflows/ci.yml`, PRs and pushes to main) runs data:check → check → test → test:e2e. Playwright has a `desktop` project and a `mobile` project (Pixel 7) that runs only `mobile.spec.ts`.
+CI (`.github/workflows/ci.yml`, PRs and pushes to main) runs data:check → check → test → test:e2e, plus a `server` job (`server-tests.yml`: builds the DB image, server typecheck + tests, API image build). Playwright has a `desktop` project and a `mobile` project (Pixel 7) that runs only `mobile.spec.ts`.
 
 On this machine, TLS goes through Cloudflare Gateway: Node/pnpm network calls need `NODE_EXTRA_CA_CERTS` / `npm_config_cafile` pointing at a bundle that includes the Gateway CA (exportable from the System keychain). CI doesn't need this.
 
@@ -35,6 +41,8 @@ On this machine, TLS goes through Cloudflare Gateway: Node/pnpm network calls ne
 
 Enums (status order, labels, colors; programs) live in `schema.ts` and drive CSS swatches, filters, markers and sorting. `DATA_AS_OF` in `src/lib/data-meta.ts` is a single constant copied into every feature.
 
+**Data platform (`server/`, stage 1 of `docs/superpowers/specs/2026-10-02-data-platform-design.md`).** Grok POSTs to `/v1/submissions` (submitter JWT) → records validated by `shared/records/schemas.ts`, normalized by `shared/records/normalize-record.ts` (canonical PINs, addresses checked against the city street list in `shared/data/streets.json`, identifiers, organization name keys) → hashed and diffed → `queue_items` with project suggestions (`server/src/match/`). Nothing reaches `filings` except through `approveItem` (review) or editor edits; every write runs in `withActor()` and the `record_revision()` trigger writes `revisions`. REST (`server/src/http/routes/`) and MCP (`server/src/mcp/tools.ts`) both call `server/src/ops.ts`. Public reads (`/v1/projects`, `/v1/projects.geojson`, `/v1/stats`) return only published projects and their linked filings. Deploys: `.github/workflows/deploy-server.yml` → GHCR image → `server/deploy/deploy.sh` on the droplet; runbook in `server/README.md`. `shared/constants.ts` holds the enums (`src/lib/constants.ts` re-exports it).
+
 **Client map (home page only).** `src/scripts/map-app.ts` orchestrates: URL ↔ `FilterState` (`src/lib/filters.ts`: `parseFilterState`, `mergeFilterSearch` keeps utm_* params and the hash), DOM markers (`src/map/markers.ts`), popups (`src/map/popup.ts`, all data escaped), and sidebar DOM sync (`src/scripts/sidebar.ts`). `render()` is the single place state is applied; `reconcileSelection` drops a selected project hidden by filters. Popup close handling relies on `closePopup()` clearing `popup` before `remove()` so programmatic closes don't re-enter `render()`. List rows are real links: keyboard activation (`event.detail === 0`) and the no-WebGL path navigate to the project page instead of flying the map.
 
 **Map module split.** `src/map/style.ts` is pure (Protomaps `layers()` + `brand-flavor.ts` + a `buildings-3d` extrusion layer) and unit-tested; `src/map/basemap.ts` is DOM/WebGL. MapLibre 6 quirks handled there: no default export (`import * as maplibregl`), and its worker URL is built at runtime so it's bundled explicitly via `maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url` + `setWorkerUrl()` — removing that breaks tiles in production (guarded by an e2e test). `createBaseMap` returns `null` without WebGL; any map `error` event shows the "tiles unavailable" notice.
@@ -49,6 +57,7 @@ Enums (status order, labels, colors; programs) live in `schema.ts` and drive CSS
 
 - `status` ∈ completed | under_construction | permitted | approved | planning; `program` ∈ lasalle | private; `confidence` ∈ dpd | reported ("Reported — not on DPD map", hollow marker); `sources` are URLs separated by ` | ` (at least one); numbers are plain digits; empty cell = unknown, rendered as "—".
 - Reconciliation: the June 2026 DPD map value is shown and alternates go in `notes`, except figures confirmed directly by the developer (e.g. Birken Lofts 57 units). Projects with `built_by_3f_url` (3F's project page) get the "Built by 3F" badge/orange marker ring. Brand constants (3F links with UTM tags, phone, Monroe footer link) live in `src/lib/site-config.ts`; logo sources (pin + Chicago-star mark, lockups) in `src/assets/brand/`, icons rendered by `scripts/generate-icons.ts`; palette tokens (`--brand` #F26430, `--accent`, `--charcoal` ink, `--ground`) in `src/styles/global.css`; Cormorant Garamond for wordmark/headings, Public Sans for UI, Lora only in share images (`tests/unit/brand.test.ts` enforces AA contrast).
+- Until stage 2 switches the site to the API, `data/projects.csv` still drives the site; after the one-time import into Postgres, edits made through the API are not written back to the CSV.
 - `tests/unit/data.test.ts` pins the real dataset (count, totals, per-stage counts, Monroe ids) and `tests/e2e/*` assert marker counts and totals — update them when rows change.
 - The GitHub repo is **public**. `data/raw/` (original research CSV, DPD map image), `inbox/` (project PDFs to process; see `inbox/README.md`) and `private/` (full extractions of confidential documents: `deals.csv`, `rent-comps.csv`, `deals/<id>/{source.pdf,extract.md,extract.json}`; see `private/README.md`) are git-ignored and must stay local; `tests/unit/private-guard.test.ts` enforces it. Only already-public, user-approved facts go into `data/projects.csv` — never price, budget, rents or returns from a deck.
 
