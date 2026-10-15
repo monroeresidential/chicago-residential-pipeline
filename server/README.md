@@ -53,7 +53,10 @@ accepts `deploy <commit sha>` is planned in infra; the workflow's remote command
    - Security → WAF → Rate limiting rule: hostname `api.chicagopipeline.com` and URI path does not start with
      `/v1/submissions` → 100 requests per minute per IP → block for 1 minute.
 7. **Spaces:** private bucket `chicago-pipeline-backups` and an access key limited to it (stored in infra's Vault).
-8. **Nightly backup** (08:15 UTC = 3:15 am CT): the `deploy` crontab entry is installed by infra's app role.
+8. **Nightly backup** (08:15 UTC = 3:15 am CT): the `deploy` crontab entry is installed by infra's app role. It runs
+   only once a deploy has succeeded (`server/.api_tag` exists) and with `--no-deps`, so it never starts the database
+   itself. On a rebuilt droplet, restore right after the first deploy: a nightly run in between would make an empty
+   database the new `latest.dump` (the timestamped dumps of the last 30 days are kept).
 9. **Uptime:** DigitalOcean Monitoring → Uptime → HTTPS check on `https://api.chicagopipeline.com/healthz`, alert email to Drew.
 10. **GitHub** → Settings → Secrets and variables → Actions → **Repository secrets** (not environment secrets):
     - `DEPLOY_SSH_KEY` — private half of the ed25519 key made only for GitHub Actions (Bitwarden SSH key item
