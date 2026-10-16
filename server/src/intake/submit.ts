@@ -173,7 +173,10 @@ export async function processSubmission(
       return response;
     }) ?? (await stored(db, principal.jti, key, sha));
   } catch (e) {
-    if (e instanceof DryRunRollback) return { submission_id: null, dry_run: true, results: e.results };
+    // The transaction was rolled back, so its queue item ids never existed; don't report them.
+    if (e instanceof DryRunRollback) {
+      return { submission_id: null, dry_run: true, results: e.results.map(({ queue_item_id: _, ...r }) => r) };
+    }
     throw e;
   }
 }

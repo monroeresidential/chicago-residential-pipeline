@@ -151,6 +151,12 @@ describe("POST /v1/submissions", () => {
     expect((await pending()).length).toBe(0);
   });
 
+  it("dry run does not report queue item ids (they were rolled back)", async () => {
+    const { body } = await json(await submit([permitRecord(), zbaRecord()], { query: "?dry_run=true" }));
+    expect(body.results.map((r: { outcome: string }) => r.outcome)).toEqual(["queued_create", "queued_create"]);
+    for (const r of body.results) expect(r).not.toHaveProperty("queue_item_id");
+  });
+
   it("enforces envelope, size, header and auth rules", async () => {
     expect((await postJson(ctx.app, "/v1/submissions", "{nope", ctx.grok, { "Idempotency-Key": "a" })).status).toBe(400);
     expect((await postJson(ctx.app, "/v1/submissions", { records: [] }, ctx.grok, { "Idempotency-Key": "b" })).status).toBe(400);
