@@ -97,6 +97,15 @@ For backfills (`backfill`, `zba-backfill`), send the backfilled records the same
   and put the original text in `notes`.
 - Send text exactly as the source prints it (addresses, names, PINs with or without dashes). The
   server normalizes formats; do not invent your own normalization.
+- **One address per `address` field.** When the source lists several (`1654 W School St / 3305 N
+  Paulina St`, or several ranges on a rezoning), send the first in `address` and the others in
+  `additional_addresses` (`zoning_matter`) or, for the other kinds, in `notes`
+  (`also 3305 N Paulina St`). Each address keeps its source spelling. The server rejects an
+  address it can't match to the city street list, and the item then waits for a manual fix.
+- **Repair OCR breaks in addresses before sending:** a letter split off a word (`A venue` →
+  `Avenue`), `I` or `l` read for `/` between two addresses, and garbled street names (`1000-10rd
+  St`, `Jeson St`). Check the source; if you can't tell what it says, send what you have and say
+  so in `notes`.
 - Lists: always arrays (`[]` when empty), never comma-joined strings.
 - `in_target`: your §0.1 target-area result. `scope`: your scope label text. `notes`: your Notes column.
 - Unknown extra fields are rejected — only send the fields listed below.
@@ -314,6 +323,7 @@ If all attempts fail, skip `commit`, and mention the failure (status and respons
 ## 7. Don'ts
 
 - Don't send only changed records — send everything the run found.
-- Don't reformat values (PINs, addresses, names); send them as the source prints them.
+- Don't reformat values (PINs, addresses, names); send them as the source prints them (apart from
+  splitting multiple addresses and repairing OCR breaks, §3).
 - Don't send records from `/workspace/zoning-sources` prototypes or `cache/pipeline_projects.json`.
 - Don't put the token in logs, emails, URLs or output files.

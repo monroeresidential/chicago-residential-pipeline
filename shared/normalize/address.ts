@@ -35,6 +35,11 @@ export const SUFFIXES: Record<string, string> = {
   CRES: "CRES", CRESCENT: "CRES", SR: "SR", RL: "RL", TOLL: "TOLL",
 };
 
+/** Common names the city list spells differently (compacted name → the list's name). */
+const STREET_ALIASES: Record<string, string> = {
+  LINCOLNPARKWEST: "LINCOLN PARK", LINCOLNPARKW: "LINCOLN PARK",
+};
+
 const inRange = (row: StreetRow, n: number) => n >= row[3] && n <= row[4];
 const distinct = <T>(xs: T[]) => [...new Set(xs)];
 
@@ -48,9 +53,12 @@ const UNIT_LABELS: Record<string, string> = {
   "#": "UNIT", UNIT: "UNIT", STE: "SUITE", SUITE: "SUITE", APT: "APT", APARTMENT: "APT", RM: "ROOM", ROOM: "ROOM", FL: "FLOOR", FLOOR: "FLOOR",
 };
 
-/** One spelling per unit: "#300", "# 300" → "UNIT 300"; "STE 300" → "SUITE 300"; "2ND FLOOR" → "FLOOR 2". */
+const ORDINAL_WORDS = ["FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH", "SIXTH", "SEVENTH", "EIGHTH", "NINTH", "TENTH"];
+
+/** One spelling per unit: "#300", "# 300" → "UNIT 300"; "STE 300" → "SUITE 300"; "2ND FLOOR", "SECOND FLOOR" → "FLOOR 2". */
 function canonicalUnit(tail: string): string {
-  const t = tail.replace(/\s+/g, " ").trim();
+  const t = tail.replace(/\s+/g, " ").trim()
+    .replace(new RegExp(`^(${ORDINAL_WORDS.join("|")}) (?=(?:FL|FLOOR)\\b)`), (w) => `${ORDINAL_WORDS.indexOf(w.trim()) + 1}TH `); // "SECOND FLOOR" → "2TH FLOOR", read below as FLOOR 2
   const floor = t.match(/^(\d+)(?:ST|ND|RD|TH) (?:FL|FLOOR)\b ?(.*)$/);
   if (floor) return `FLOOR ${floor[1]}${floor[2] ? ` ${floor[2]}` : ""}`;
   const m = t.match(/^(#|(?:UNIT|STE|SUITE|APARTMENT|APT|FL|FLOOR|RM|ROOM)\b) ?(.*)$/);
@@ -68,6 +76,7 @@ export function normalizeAddress(raw: string, zipRaw?: string | null): AddressRe
     s = s.replace(re, (tail) => { units.push(canonicalUnit(tail)); return ""; }).trim();
   };
   cut(/\s\d+(?:ST|ND|RD|TH)\s+(?:FL|FLOOR)\b.*$/);
+  cut(new RegExp(`\\s(?:${ORDINAL_WORDS.join("|")})\\s+(?:FL|FLOOR)\\b.*$`));
   cut(/\s(?:#|(?:UNIT|STE|SUITE|APARTMENT|APT|FL|FLOOR|RM|ROOM)\b)\s*\S*.*$/);
   cut(/#\S*$/);
   const unit = units.length ? units.reverse().join(" ") : undefined;
@@ -83,7 +92,7 @@ export function normalizeAddress(raw: string, zipRaw?: string | null): AddressRe
   if (tokens.length > 1 && DIRS[tokens[0]!]) predir = DIRS[tokens.shift()!]!;
   let suffix: string | null = null;
   if (tokens.length > 1 && SUFFIXES[tokens[tokens.length - 1]!]) suffix = SUFFIXES[tokens.pop()!]!;
-  const name = tokens.join(" ");
+  const name = STREET_ALIASES[compact(tokens.join(" "))] ?? tokens.join(" ");
 
   const warnings: string[] = [];
   let candidates: StreetRow[];
