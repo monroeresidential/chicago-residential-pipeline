@@ -162,7 +162,7 @@ Required fields are marked **R**; everything else may be `null`.
 | `aro` | boolean | ARO |
 | `pd` | boolean | PD |
 | `aldermanic` | boolean | aldermanic or City-initiated matter |
-| `status` **R** | string | Status, exactly as eLMS shows it now |
+| `status` **R** | string | eLMS status and sub-status joined with ` - `, stage number dropped: `4-In Committee` + `Referred` → `In Committee - Referred` (no sub-status → `In Committee`). Never append the last action (that goes in `notes`). Keep this format fixed. |
 | `flag` | string | Flag |
 | `source_url` **R** | string | official eLMS / PDF source link |
 | `drive_pdf_url` | string | PDF (Drive) |
