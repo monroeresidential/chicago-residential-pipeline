@@ -41,6 +41,20 @@ describe("normalizeAddress", () => {
     expect(addressKey(value("55 E Washington St # 300").value)).toBe("55 E WASHINGTON ST");
   });
 
+  it("drops floors written out as words (ZBA agendas: \"First Floor\")", () => {
+    const first = value("2124 W Warren Blvd, First Floor");
+    expect(addressKey(first.value)).toBe("2124 W WARREN BLVD");
+    expect(first.unit).toBe("FLOOR 1");
+    expect(value("2124 W Warren Blvd, Second Floor").unit).toBe("FLOOR 2");
+    expect(value("2124 W Warren Blvd Tenth Fl").unit).toBe("FLOOR 10");
+  });
+
+  it.each([
+    ["2300-12 N Lincoln Park West", "2300-2312 N LINCOLN PARK"],
+    ["2300 N Lincoln Park W", "2300 N LINCOLN PARK"],
+    ["2300 Lincoln Park West", "2300 N LINCOLN PARK"],
+  ])("reads Lincoln Park West as the city list's N LINCOLN PARK: %s", (raw, key) => expect(addressKey(value(raw).value)).toBe(key));
+
   it("uses null, never an empty string, for streets without a suffix", () => {
     const corrected = value("3000 N Broadway St").value;
     expect(corrected.suffix).toBeNull();
