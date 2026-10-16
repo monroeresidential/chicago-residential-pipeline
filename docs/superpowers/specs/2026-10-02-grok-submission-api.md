@@ -1,7 +1,7 @@
 # Chicago Pipeline Submission API — Instructions for Grok
 
 **Date:** 2026-10-02
-**Status:** Draft for review (the API does not exist yet; build against this once Drew confirms it is live)
+**Status:** Live since 2026-10-15 (`https://api.chicagopipeline.com`). Start with §1a: dry runs only until Drew says go.
 **Design:** `2026-10-02-data-platform-design.md`
 
 You (the Chicago Data Bot) send every record you find each day to the Chicago Pipeline API.
@@ -25,6 +25,20 @@ Content-Type: application/json
 - Validate first if you like: `GET https://api.chicagopipeline.com/v1/schema/submission.json`
   returns the JSON Schema. `POST /v1/submissions?dry_run=true` checks a request and returns the
   results without saving anything.
+
+## 1a. Getting started — dry run first
+
+Until Drew confirms in writing that live submissions may start, send **only** `?dry_run=true` requests:
+
+1. Take one real day's pending output for each program (permits, zoning), unchanged.
+2. `POST https://api.chicagopipeline.com/v1/submissions?dry_run=true`, chunks of up to 500, same headers and
+   body as a live request (§3). A dry run saves nothing, so it doesn't consume the `Idempotency-Key`.
+3. Send Drew, per chunk: the HTTP status, the count of each `outcome`, and every `invalid` result in full
+   (`index`, `source_key`, `errors`). Don't paste the token.
+4. Don't run `commit` or change your Sheets/email routine because of a dry run.
+
+After Drew reviews the outcomes: the first live run (same day's data, no `dry_run`), then the history backfill
+in chunks of 500, oldest first, one `Idempotency-Key` per chunk (e.g. `backfill-zoning-0001`).
 
 ## 2. When to send (changes to your daily procedure)
 
