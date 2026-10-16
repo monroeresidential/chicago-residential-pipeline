@@ -294,6 +294,9 @@ A `permit` record and a `hearing_item` record follow the same pattern with the f
 
 A `202` with some `invalid` results still counts as success for running `commit`.
 
+A dry run (`?dry_run=true`) answers with `"submission_id": null`, `"dry_run": true` and the same `outcome`s, but
+no `queue_item_id`: nothing was saved.
+
 | Status | Meaning | Retry? |
 |---|---|---|
 | `400` | the envelope is malformed (missing `run`, `records` not an array…) | no — fix the code |
