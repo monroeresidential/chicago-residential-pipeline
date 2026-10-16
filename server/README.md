@@ -30,18 +30,21 @@ group, no sudo, owns `/opt/chicago-pipeline`) is used only by the deploy workflo
 forwarding), so the workflow must keep using plain `ssh deploy@host "<command>"`. A forced `command=` wrapper that only
 accepts `deploy <commit sha>` is planned in infra; the workflow's remote command will change with it.
 
-1. **Droplet:** Ubuntu 24.04, Basic, 2 GB RAM, weekly backups on, IP `161.35.125.21`. Region: the README originally
-   said NYC3 but the droplet's hostname says `nyc1` — confirm in the dashboard. (If it is NYC1, the Spaces bucket can
-   stay in NYC3.)
-2. **Cloud Firewall:** managed by infra's `playbooks/cloud.yml` — inbound TCP 443 from Cloudflare's ranges, inbound 22
-   from admin IPs, outbound all. The deploy workflow temporarily adds and then removes an SSH rule for its runner on the
-   same firewall, so **don't run `cloud.yml` while a deploy is running** (one could remove the other's rule).
+1. **Droplet:** Ubuntu 24.04, Basic, 2 GB RAM, weekly backups on, IP `161.35.125.21`, region NYC3 (same as the
+   Spaces bucket).
+2. **Cloud Firewall:** managed by hand in the DigitalOcean dashboard (infra `docs/chicago-pipeline-secrets.md` Part 2):
+   inbound TCP 443 from Cloudflare's ranges, inbound 22 from admin IPs, outbound all. The deploy workflow temporarily
+   adds and then removes an SSH rule for its runner on the same firewall, so **don't edit the firewall while a deploy
+   is running**.
 3. **Server shell setup** (Docker, `deploy` user, clone to `/opt/chicago-pipeline`): done by the infra repo
    (`ansible-playbook playbooks/site.yml`, app role `app_chicago_pipeline`).
-4. **GHCR login for `deploy`:** done by infra's app role (read-only `read:packages` token from its Vault).
-5. **`server/.env`:** written by infra's app role from its Vault (mode 600). Values: `POSTGRES_PASSWORD`, `JWT_SECRET`,
-   the Spaces key, `RESEND_API_KEY`, `ALERT_FROM`, `ALERT_TO`, optional `SITE_BUILD_HOOK_*`. It must **not** set
-   `API_TAG`: compose defaults to the locally tagged `:deployed` image that `deploy.sh` maintains.
+4. **Image:** the GHCR package `chicago-pipeline-api` is **public** (the repo is public), so the droplet pulls it
+   without a registry login.
+5. **`server/.env`:** written by infra's app role (mode 600). The Spaces key and `RESEND_API_KEY` come from its Vault,
+   `ALERT_FROM`/`ALERT_TO` from its host vars; `POSTGRES_PASSWORD` and `JWT_SECRET` are generated on the droplet the
+   first time and exist nowhere else (a rebuilt droplet restores the backup and reissues API tokens). Optional
+   `SITE_BUILD_HOOK_*` later. It must **not** set `API_TAG`: compose defaults to the locally tagged `:deployed` image
+   that `deploy.sh` maintains.
 6. **Cloudflare (chicagopipeline.com zone)** — Drew in the dashboard:
    - DNS: `A api → 161.35.125.21`, **Proxied**.
    - SSL/TLS → Origin Server → Create certificate for `api.chicagopipeline.com` (15 years) and store it in infra's
@@ -50,7 +53,10 @@ accepts `deploy <commit sha>` is planned in infra; the workflow's remote command
    - Security → WAF → Rate limiting rule: hostname `api.chicagopipeline.com` and URI path does not start with
      `/v1/submissions` → 100 requests per minute per IP → block for 1 minute.
 7. **Spaces:** private bucket `chicago-pipeline-backups` and an access key limited to it (stored in infra's Vault).
-8. **Nightly backup** (08:15 UTC = 3:15 am CT): the `deploy` crontab entry is installed by infra's app role.
+8. **Nightly backup** (08:15 UTC = 3:15 am CT): the `deploy` crontab entry is installed by infra's app role. It runs
+   only once a deploy has succeeded (`server/.api_tag` exists) and with `--no-deps`, so it never starts the database
+   itself. On a rebuilt droplet, restore right after the first deploy: a nightly run in between would make an empty
+   database the new `latest.dump` (the timestamped dumps of the last 30 days are kept).
 9. **Uptime:** DigitalOcean Monitoring → Uptime → HTTPS check on `https://api.chicagopipeline.com/healthz`, alert email to Drew.
 10. **GitHub** → Settings → Secrets and variables → Actions → **Repository secrets** (not environment secrets):
     - `DEPLOY_SSH_KEY` — private half of the ed25519 key made only for GitHub Actions (Bitwarden SSH key item
